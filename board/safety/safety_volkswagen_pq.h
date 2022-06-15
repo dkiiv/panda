@@ -194,7 +194,7 @@ static int volkswagen_pq_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
   switch (bus_num) {
     case 0:
       // Forward all traffic from the Extended CAN onward
-      bus_fwd = 2;
+      bus_fwd = -1;
       break;
     case 2:
       if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1)) {
