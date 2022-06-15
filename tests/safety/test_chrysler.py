@@ -5,9 +5,8 @@ from panda.tests.safety import libpandasafety_py
 import panda.tests.safety.common as common
 from panda.tests.safety.common import CANPackerPanda
 
-GAS_THRESHOLD = 2.14
 
-class TestChryslerSafety(common.PandaSafetyTest, common.TorqueSteeringSafetyTest):
+class TestChryslerSafety(common.PandaSafetyTest, common.MotorTorqueSteeringSafetyTest):
   TX_MSGS = [[571, 0], [658, 0], [678, 0]]
   STANDSTILL_THRESHOLD = 0
   RELAY_MALFUNCTION_ADDR = 0x292
@@ -47,12 +46,12 @@ class TestChryslerSafety(common.PandaSafetyTest, common.TorqueSteeringSafetyTest
     values = {"SPEED_LEFT": speed, "SPEED_RIGHT": speed}
     return self.packer.make_can_msg_panda("SPEED_1", 0, values)
 
-  def _gas_msg(self, gas):
+  def _user_gas_msg(self, gas):
     values = {"ACCEL_134": gas, "COUNTER": self.cnt_gas % 16}
     self.__class__.cnt_gas += 1
     return self.packer.make_can_msg_panda("ACCEL_GAS_134", 0, values)
 
-  def _brake_msg(self, brake):
+  def _user_brake_msg(self, brake):
     values = {"BRAKE_PRESSED_2": 5 if brake else 0,
               "COUNTER": self.cnt_brake % 16}
     self.__class__.cnt_brake += 1
@@ -63,28 +62,9 @@ class TestChryslerSafety(common.PandaSafetyTest, common.TorqueSteeringSafetyTest
     self.__class__.cnt_torque_meas += 1
     return self.packer.make_can_msg_panda("EPS_STATUS", 0, values)
 
-  def _torque_msg(self, torque):
+  def _torque_cmd_msg(self, torque, steer_req=1):
     values = {"LKAS_STEERING_TORQUE": torque}
     return self.packer.make_can_msg_panda("LKAS_COMMAND", 0, values)
-
-  def test_prev_gas(self):
-    self.assertFalse(self.safety.get_gas_pressed_prev())
-
-    # chrysler has an additional check on wheel speed
-    self._rx(self._speed_msg(GAS_THRESHOLD + 1))
-    for pressed in [self.GAS_PRESSED_THRESHOLD + 1, 0]:
-      self._rx(self._gas_msg(pressed))
-      self.assertEqual(bool(pressed), self.safety.get_gas_pressed_prev())
-
-  def test_disengage_on_gas(self):
-    self.safety.set_controls_allowed(1)
-    self._rx(self._speed_msg(2.1))
-    self._rx(self._gas_msg(1))
-    self.assertTrue(self.safety.get_controls_allowed())
-    self._rx(self._gas_msg(0))
-    self._rx(self._speed_msg(2.2))
-    self._rx(self._gas_msg(1))
-    self.assertFalse(self.safety.get_controls_allowed())
 
   def test_cancel_button(self):
     for cancel in [True, False]:
