@@ -14,9 +14,12 @@ const int VOLKSWAGEN_PQ_DRIVER_TORQUE_FACTOR = 3;
 #define MSG_BREMSE_1    0x1A0   // RX from ABS, for ego speed
 #define MSG_LDW_1       0x5BE   // TX by OP, Lane line recognition and text alerts
 #define MSG_ACC_GRA_Anziege 0x56A // TX by OP, for control of the ACC display
+#define MSG_MOB_1       0x284   // TX by OP, Braking Control
+#define MSG_GAS_COMMAND 0x200   // TX by OP, Gas Control
+#define MSG_GAS_SENSOR  0x201   // RX from Pedal
 
 // Transmit of GRA_Neu is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
-const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}, {MSG_ACC_GRA_Anziege, 0, 8}};
+const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}, {MSG_ACC_GRA_Anziege, 0, 8}, {MSG_MOB_1, 1, 6}, {MSG_GAS_1, 2, 6}};
 #define VOLKSWAGEN_PQ_TX_MSGS_LEN (sizeof(VOLKSWAGEN_PQ_TX_MSGS) / sizeof(VOLKSWAGEN_PQ_TX_MSGS[0]))
 
 AddrCheckStruct volkswagen_pq_addr_checks[] = {
@@ -60,6 +63,21 @@ static int volkswagen_pq_rx_hook(CANPacket_t *to_push) {
 
   bool valid = addr_safety_check(to_push, &volkswagen_pq_rx_checks,
                                 volkswagen_pq_get_checksum, volkswagen_pq_compute_checksum, volkswagen_pq_get_counter);
+
+  if (valid) {
+    int addr = GET_ADDR(to_push);
+    // Exit controls on rising edge of interceptor gas press
+    if (addr == MSG_GAS_SENSOR) {
+      gas_interceptor_detected = 1;
+      controls_allowed = 1;
+      int gas_interceptor = VOLKSWAGEN_GET_INTERCEPTOR(to_push);
+      if ((gas_interceptor > VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD) &&
+          (gas_interceptor_prev <= VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD)) {
+        controls_allowed = 0;
+      }
+      gas_interceptor_prev = gas_interceptor;
+    }
+  }
 
   if (valid && (GET_BUS(to_push) == 0U)) {
     int addr = GET_ADDR(to_push);
