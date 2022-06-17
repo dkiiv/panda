@@ -12,13 +12,14 @@ MSG_MOTOR_3 = 0x380      # RX from ECU, for driver throttle input
 MSG_GRA_NEU = 0x38A      # TX by OP, ACC control buttons for cancel/resume
 MSG_BREMSE_1 = 0x1A0     # RX from ABS, for ego speed
 MSG_LDW_1 = 0x5BE        # TX by OP, Lane line recognition and text alerts
+MSG_ACC_GRA_Anziege = 0x56A # TX by OP, for control of the ACC display
 
 
 class TestVolkswagenPqSafety(common.PandaSafetyTest, common.DriverTorqueSteeringSafetyTest):
   cruise_engaged = False
 
   # Transmit of GRA_Neu is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
-  TX_MSGS = [[MSG_HCA_1, 0], [MSG_GRA_NEU, 0], [MSG_GRA_NEU, 2], [MSG_LDW_1, 0]]
+  TX_MSGS = [[MSG_HCA_1, 0], [MSG_GRA_NEU, 0], [MSG_GRA_NEU, 2], [MSG_LDW_1, 0], [MSG_ACC_GRA_Anziege, 0]]
   STANDSTILL_THRESHOLD = 1
   RELAY_MALFUNCTION_ADDR = MSG_HCA_1
   RELAY_MALFUNCTION_BUS = 0
