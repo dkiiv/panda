@@ -5,6 +5,7 @@ const int VOLKSWAGEN_PQ_MAX_RATE_UP = 10;               // 5.0 Nm/s RoC limit (E
 const int VOLKSWAGEN_PQ_MAX_RATE_DOWN = 10;             // 5.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_ALLOWANCE = 80;
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_FACTOR = 3;
+const int VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD = 475;
 
 #define MSG_LENKHILFE_3 0x0D0   // RX from EPS, for steering angle and driver steering torque
 #define MSG_HCA_1       0x0D2   // TX by OP, Heading Control Assist steering torque
