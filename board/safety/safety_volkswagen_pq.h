@@ -13,9 +13,10 @@ const int VOLKSWAGEN_PQ_DRIVER_TORQUE_FACTOR = 3;
 #define MSG_GRA_NEU     0x38A   // TX by OP, ACC control buttons for cancel/resume
 #define MSG_BREMSE_1    0x1A0   // RX from ABS, for ego speed
 #define MSG_LDW_1       0x5BE   // TX by OP, Lane line recognition and text alerts
+#define MSG_ACC_GRA_Anziege 0x56A // TX by OP, for control of the ACC display
 
 // Transmit of GRA_Neu is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
-const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}};
+const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}, {MSG_ACC_GRA_Anziege, 0, 8}};
 #define VOLKSWAGEN_PQ_TX_MSGS_LEN (sizeof(VOLKSWAGEN_PQ_TX_MSGS) / sizeof(VOLKSWAGEN_PQ_TX_MSGS[0]))
 
 AddrCheckStruct volkswagen_pq_addr_checks[] = {
