@@ -21,7 +21,7 @@ const int VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD = 475;
 #define VOLKSWAGEN_GET_INTERCEPTOR(msg) (((GET_BYTE((msg), 0) << 8) + GET_BYTE((msg), 1) + (GET_BYTE((msg), 2) << 8) + GET_BYTE((msg), 3)) / 2) // avg between 2 tracks
 
 // Transmit of GRA_Neu is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
-const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}, {MSG_ACC_GRA_Anziege, 0, 8}, {MSG_MOB_1, 1, 6}, {MSG_GAS_COMMAND, 2, 6}};
+const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}, {MSG_ACC_GRA_Anziege, 0, 8}, {MSG_MOB_1, 1, 6}, {MSG_GAS_COMMAND, 0, 6}};
 #define VOLKSWAGEN_PQ_TX_MSGS_LEN (sizeof(VOLKSWAGEN_PQ_TX_MSGS) / sizeof(VOLKSWAGEN_PQ_TX_MSGS[0]))
 
 AddrCheckStruct volkswagen_pq_addr_checks[] = {
