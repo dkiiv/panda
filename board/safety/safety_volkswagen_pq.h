@@ -120,7 +120,7 @@ static int volkswagen_pq_rx_hook(CANPacket_t *to_push) {
     }
 
     // Signal: Motor_3.Fahrpedal_Rohsignal
-    if (addr == MSG_MOTOR_3) {
+    if (addr == MSG_MOTOR_3 && !pq_long_control) {
       gas_pressed = (GET_BYTE(to_push, 2));
     }
 
