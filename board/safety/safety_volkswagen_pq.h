@@ -6,6 +6,7 @@ const int VOLKSWAGEN_PQ_MAX_RATE_DOWN = 10;             // 5.0 Nm/s RoC limit (E
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_ALLOWANCE = 80;
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_FACTOR = 3;
 const int VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD = 475;
+const int PQ_LONG_CONTROL = 0;
 bool pq_long_control = false;  // flag from OP for PQ long
 
 #define MSG_LENKHILFE_3 0x0D0   // RX from EPS, for steering angle and driver steering torque
@@ -57,8 +58,7 @@ static uint32_t volkswagen_pq_compute_checksum(CANPacket_t *to_push) {
 }
 
 static const addr_checks* volkswagen_pq_init(uint16_t param) {
-  UNUSED(param);
-
+  pq_long_control = GET_FLAG(param, PQ_LONG_CONTROL);
   return &volkswagen_pq_rx_checks;
 }
 
@@ -108,7 +108,6 @@ static int volkswagen_pq_rx_hook(CANPacket_t *to_push) {
     // Enter controls on rising edge of stock ACC, exit controls if stock ACC disengages
     // Signal: Motor_2.GRA_Status
     if (addr == MSG_MOTOR_2) {
-      pq_long_control = GET_FLAG(param, PQ_LONG_CONTROL);
       int acc_status = (GET_BYTE(to_push, 2) & 0xC0U) >> 6;
       int cruise_engaged = ((acc_status == 1) || (acc_status == 2) || pq_long_control) ? 1 : 0;
       if (cruise_engaged && !cruise_engaged_prev) {
