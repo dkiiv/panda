@@ -74,9 +74,8 @@ static int volkswagen_pq_rx_hook(CANPacket_t *to_push) {
       gas_interceptor_detected = 1;
       controls_allowed = 1;
       int gas_interceptor = VOLKSWAGEN_GET_INTERCEPTOR(to_push);
-      if (pq_long_control) {
-          controls_allowed = 1;
-        } else if ((gas_interceptor > VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD) && (gas_interceptor_prev <= VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD)) {
+      if ((gas_interceptor > VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD) &&
+          (gas_interceptor_prev <= VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD) && !pq_long_control) {
           controls_allowed = 0;
         }
       gas_interceptor_prev = gas_interceptor;
