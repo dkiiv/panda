@@ -110,10 +110,10 @@ static int volkswagen_pq_rx_hook(CANPacket_t *to_push) {
     if (addr == MSG_MOTOR_2) {
       int acc_status = (GET_BYTE(to_push, 2) & 0xC0U) >> 6;
       int cruise_engaged = ((acc_status == 1) || (acc_status == 2) || pq_long_control) ? 1 : 0;
-      if (cruise_engaged && !cruise_engaged_prev) {
+      if ((cruise_engaged && !cruise_engaged_prev) || gas_interceptor_detected) {
         controls_allowed = 1;
       }
-      if (!cruise_engaged) {
+      if (!cruise_engaged && !gas_interceptor_detected) {
         controls_allowed = 0;
       }
       cruise_engaged_prev = cruise_engaged;
