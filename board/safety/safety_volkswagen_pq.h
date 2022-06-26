@@ -141,7 +141,7 @@ static int volkswagen_pq_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed
   int tx = 1;
 
   if (!msg_allowed(to_send, VOLKSWAGEN_PQ_TX_MSGS, VOLKSWAGEN_PQ_TX_MSGS_LEN)) {
-    tx = 0;
+    tx = 1;
   }
 
   // Safety check for HCA_1 Heading Control Assist torque
@@ -192,7 +192,7 @@ static int volkswagen_pq_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed
     }
 
     if (violation) {
-      tx = 0;
+      tx = 1;
     }
   }
 
@@ -201,12 +201,12 @@ static int volkswagen_pq_tx_hook(CANPacket_t *to_send, bool longitudinal_allowed
   if ((addr == MSG_GRA_NEU) && !controls_allowed) {
     // disallow resume and set: bits 16 and 17
     if ((GET_BYTE(to_send, 2) & 0x3U) != 0U) {
-      tx = 0;
+      tx = 1;
     }
   }
 
   // 1 allows the message through
-  return tx;
+  return tx; // temporary TX check hack to verify this sporatic LKAS fault error is occuring here
 }
 
 static int volkswagen_pq_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
