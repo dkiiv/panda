@@ -1,7 +1,7 @@
 const int VOLKSWAGEN_PQ_MAX_STEER = 300;                // 3.0 Nm (EPS side max of 3.0Nm with fault if violated)
-const int VOLKSWAGEN_PQ_MAX_RT_DELTA = 75;              // 4 max rate up * 50Hz send rate * 250000 RT interval / 1000000 = 50 ; 50 * 1.5 for safety pad = 75
+const int VOLKSWAGEN_PQ_MAX_RT_DELTA = 188;             // 10 max rate up * 50Hz send rate * 250000 RT interval / 1000000 = 125 ; 125 * 1.5 for safety pad = 187.5
 const uint32_t VOLKSWAGEN_PQ_RT_INTERVAL = 250000;      // 250ms between real time checks
-const int VOLKSWAGEN_PQ_MAX_RATE_UP = 4;                // 2.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
+const int VOLKSWAGEN_PQ_MAX_RATE_UP = 10;               // 5.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
 const int VOLKSWAGEN_PQ_MAX_RATE_DOWN = 10;             // 5.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_ALLOWANCE = 80;
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_FACTOR = 3;
@@ -194,7 +194,7 @@ static int volkswagen_pq_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
   switch (bus_num) {
     case 0:
       // Forward all traffic from the Extended CAN onward
-      bus_fwd = 2;
+      bus_fwd = -1;
       break;
     case 2:
       if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1)) {
