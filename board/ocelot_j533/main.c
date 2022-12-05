@@ -51,7 +51,7 @@ void __initialize_hardware_early(void) {
 
 #ifdef TGW_USB
 
-#include "smart_dsu/can.h"
+#include "ocelot_j533/can.h"
 
 // ********************* usb debugging *********************
 // TODO: neuter this if we are not debugging
@@ -184,16 +184,16 @@ int usb_cb_control_msg(USB_Setup_TypeDef *setup, uint8_t *resp, bool hardwired) 
 
 // ***************************** can port *****************************
 
-// Toyota Checksum algorithm
-uint8_t toyota_checksum(int addr, uint8_t *dat, int len){
-  int cksum = 0;
-  for(int ii = 0; ii < (len - 1); ii++){
-    cksum = (cksum + dat[ii]); 
+// Volkswagen PQ Checksum
+uint32_t volkswagen_pq_compute_checksum(CANPacket_t *to_push) {
+  int len = GET_LEN(to_push);
+  uint8_t checksum = 0U;
+
+  for (int i = 1; i < len; i++) {
+    checksum ^= (uint8_t)GET_BYTE(to_push, i);
   }
-  cksum += len;
-  cksum += ((addr >> 8U) & 0xFF); // idh
-  cksum += ((addr) & 0xFF); // idl
-  return cksum & 0xFF;
+
+  return checksum;
 }
 
 #define CAN_UPDATE  0xF0 //bootloader
@@ -230,24 +230,28 @@ uint8_t state = FAULT_STARTUP;
 uint8_t ctrl_mode = 0;
 bool send = 0;
 
-//------------- BUS 1 - PTCAN ------------//
+// Bus 0: Ext Can
+// Bus 1: Car PTCan
+// Bus 2: GW PTCan
 
-#define ACC_CTRL 0xF10
+//------------- BUS 0 - EXT CAN --------------//
+
+#define dummyRadar 0x1
+int targetDistance = 0
+
+//------------- BUS 1 - CAR PTCAN ------------//
+
+#define vEgo 0x2
+
+#define CCStalk 0x3
 bool enable_acc = 0;
-bool op_ctrl_mode = 0;
-int acc_cmd = 0;
 
-#define AEB_CTRL 0xF11
-bool enable_aeb_control = 0;
-int aeb_cmd = 0;
+#define placeholder 0x4
 
-//------------- BUS 2 - DSU -------------//
+//------------- BUS 2 - GW PTCAN -------------//
 
-#define DSU_ACC_CONTROL 0x343
-bool acc_cancel = 0;
-
-#define DSU_AEB_CMD 0x344
-bool stock_aeb_active = 0;
+#define ACCStalk 0x5
+int accSetPoint = 0
 
 void CAN1_RX0_IRQ_Handler(void) {
   while ((CAN1->RF0R & CAN_RF0R_FMP0) != 0) {

@@ -2,7 +2,7 @@
 set -e
 
 cd ..
-SDSU=1 scons -u
-cd smart_dsu
+OJ533=1 scons -u
+cd ocelot_j533
 
 ../../tests/gateway/enter_canloader.py ../obj/panda.bin.signed
