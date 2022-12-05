@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# type: ignore
 from panda import Panda
 from hexdump import hexdump
 

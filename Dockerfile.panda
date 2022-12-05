@@ -26,10 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libusb-1.0-0 \
     libzmq3-dev \
     locales \
-    opencl-headers \
-    ocl-icd-opencl-dev \
     make \
-    patch \
     pkg-config \
     python \
     python-dev \
@@ -47,8 +44,8 @@ RUN curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-instal
 ENV PATH="/root/.pyenv/bin:/root/.pyenv/shims:${PATH}"
 
 COPY requirements.txt /tmp/
-RUN pyenv install 3.8.10 && \
-    pyenv global 3.8.10 && \
+RUN pyenv install 3.8.5 && \
+    pyenv global 3.8.5 && \
     pyenv rehash && \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
@@ -56,22 +53,22 @@ RUN cd /tmp && \
     git clone https://github.com/danmar/cppcheck.git && \
     cd cppcheck && \
     git fetch && \
-    git checkout e1cff1d1ef92f6a1c6962e0e4153b7353ccad04c && \
+    git checkout e46191e6e809272d8b34feca8999ee413f716b80 && \
     FILESDIR=/usr/share/cppcheck make -j4 install
 
 RUN cd /tmp && \
     git clone https://github.com/commaai/openpilot.git tmppilot || true && \
     cd /tmp/tmppilot && \
     git fetch && \
-    git checkout a1fadc7b547f10782222b3f38df68e89d649dd92 && \
-    git submodule update --init cereal opendbc rednose_repo && \
+    git checkout 5463469f71e7861ccfbbd4d09b8e4ae56b8d3e45 && \
+    git submodule update --init cereal opendbc && \
     mkdir /tmp/openpilot && \
-    cp -pR SConstruct site_scons/ tools/ selfdrive/ common/ cereal/ opendbc/ rednose/ third_party/ /tmp/openpilot && \
+    cp -pR SConstruct site_scons/ tools/ selfdrive/ common/ cereal/ opendbc/ /tmp/openpilot && \
     rm -rf /tmp/tmppilot
 
 RUN cd /tmp/openpilot && \
     pip install --no-cache-dir -r opendbc/requirements.txt && \
-    pip install --no-cache-dir --upgrade aenum lru-dict pycurl tenacity atomicwrites serial smbus2 scons
+    pip install --no-cache-dir --upgrade aenum lru-dict pycurl tenacity atomicwrites scons
 
 COPY . /tmp/openpilot/panda
 RUN rm -rf /tmp/openpilot/panda/.git
