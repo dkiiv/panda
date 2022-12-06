@@ -245,7 +245,9 @@ int targetDistance = 0
 
 //------------- BUS 2 - GW PTCAN -------------//
 
-// blank for now
+//                blank for now
+
+//------------- CAN FWDing below -------------//
 
 void CAN1_RX0_IRQ_Handler(void) {
   while ((CAN1->RF0R & CAN_RF0R_FMP0) != 0) {
@@ -281,11 +283,9 @@ void CAN1_RX0_IRQ_Handler(void) {
           }
         }
         break;
-      default:
-        // FWD as-is
-        break;
     }
     // no forward, can 1 is injection
+    can_send(&to_fwd, 0, false);
     // next
     can_rx(0);
     // CAN1->RF0R |= CAN_RF0R_RFOM0;
@@ -324,13 +324,14 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
         if(dat[0] == volkswagen_pq_compute_checksum(address, dat, 8)){
-          if (dat[2] != ){
-            // if GRA_Sender is NOT 1 or 2, convert to 1
-          }
-          if (dat[1] != ){
+          if (dat[1] != 1){
             // if GRA_Kodierinfo is NOT 1, convert to 1
           }
+          if (dat[2] != (1 | 2)){
+            // if GRA_Sender is NOT 1 or 2, convert to 1
+          }
         }
+        break;
       default:
         // FWD as-is
         break;
@@ -368,7 +369,7 @@ void CAN3_RX0_IRQ_Handler(void) {
     UNUSED(address);
     #endif
 
-    // send to CAN2
+    // send to CAN2 with love from CAN3
     can_send(&to_fwd, 1, false);
     // next
     can_rx(3);
