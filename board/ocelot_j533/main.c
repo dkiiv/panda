@@ -236,22 +236,16 @@ bool send = 0;
 
 //------------- BUS 0 - EXT CAN --------------//
 
-#define dummyRadar 0x1
+#define mACC_System 0x368
 int targetDistance = 0
 
 //------------- BUS 1 - CAR PTCAN ------------//
 
-#define vEgo 0x2
-
-#define CCStalk 0x3
-bool enable_acc = 0;
-
-#define placeholder 0x4
+#define GRA_Neu 0x38A
 
 //------------- BUS 2 - GW PTCAN -------------//
 
-#define ACCStalk 0x5
-int accSetPoint = 0
+// blank for now
 
 void CAN1_RX0_IRQ_Handler(void) {
   while ((CAN1->RF0R & CAN_RF0R_FMP0) != 0) {
@@ -287,57 +281,11 @@ void CAN1_RX0_IRQ_Handler(void) {
           }
         }
         break;
-      case DSU_ACC_CONTROL: // hack to allow the firmware to support stock OP
-        to_fwd.RIR &= 0xFFFFFFFE; // do not fwd
-        op_ctrl_mode = 1;
-        // reset timer for op_ctrl_mode
-        TIM2->CNT = 0;
-        break;
-      case ACC_CTRL:
-        // send this EXACTLY how ACC_CONTROL is sent
-        for (int i=0; i<8; i++) {
-          dat[i] = GET_BYTE(&CAN3->sFIFOMailBox[0], i);
-        }
-        if (dat[7] == toyota_checksum(address, dat, 8)){
-          enable_acc = 1; // TODO: set this somewhere else.. 1D2? do we need this?
-          acc_cmd = (dat[0] << 8U) | dat[1]; // ACC_CMD
-          acc_cancel = (dat[3] & 1U);
-          // reset the timer
-          timeout_f10 = 0;
-          ctrl_mode |= 1; // set ACC_CTRL mode bit
-        } else {
-          state = FAULT_BAD_CHECKSUM;
-          enable_acc = 0;
-          acc_cmd = 0;
-        }
-        to_fwd.RIR &= 0xFFFFFFFE; // do not fwd
-        break;
-      case AEB_CTRL:
-        // send this EXACTLY how PRE_COLLISION2 is sent
-        for (int i=0; i<8; i++) {
-          dat[i] = GET_BYTE(&CAN3->sFIFOMailBox[0], i);
-        }
-        if (dat[7] == toyota_checksum(address, dat, 8)){
-          // an emergency maneuver is being requested
-          enable_aeb_control = 1;
-          aeb_cmd = (dat[0] << 2U) | (dat[1] & 3U);
-          // reset the timer
-          timeout_f11 = 0;
-          ctrl_mode |= (1 << 1U); // set AEB_CTRL mode bit
-          state = STATE_AEB_CTRL;
-        } else {
-          enable_aeb_control = 0;
-          aeb_cmd = 0;
-          state = FAULT_BAD_CHECKSUM;
-        }
-        to_fwd.RIR &= 0xFFFFFFFE; // do not fwd
-        break;
       default:
         // FWD as-is
         break;
     }
-    // send to CAN3
-    can_send(&to_fwd, 2, false);
+    // no forward, can 1 is injection
     // next
     can_rx(0);
     // CAN1->RF0R |= CAN_RF0R_RFOM0;
@@ -350,29 +298,55 @@ void CAN1_SCE_IRQ_Handler(void) {
   llcan_clear_send(CAN1);
 }
 
-// CAN2 not used for now.. chip shortage means don't populate on the board
+void CAN2_RX0_IRQ_Handler(void) {
+  while ((CAN2->RF0R & CAN_RF0R_FMP0) != 0) {
 
-// void CAN2_RX0_IRQ_Handler(void) {
-//   while ((CAN3->RF0R & CAN_RF0R_FMP0) != 0) {
-//     uint16_t address = CAN3->sFIFOMailBox[0].RIR >> 21;
-//     #ifdef DEBUG_CAN
-//     puts("CAN3 RX: ");
-//     puth(address);
-//     puts("\n");
-//     #else
-//     UNUSED(address);
-//     #endif
+    CAN_FIFOMailBox_TypeDef to_fwd;
+    to_fwd.RIR = CAN2->sFIFOMailBox[0].RIR | 1; // TXQ
+    to_fwd.RDTR = CAN2->sFIFOMailBox[0].RDTR;
+    to_fwd.RDLR = CAN2->sFIFOMailBox[0].RDLR;
+    to_fwd.RDHR = CAN2->sFIFOMailBox[0].RDHR;
 
-//     // next
-//     can_rx(1);
-//   }
-// }
+    uint16_t address = CAN2->sFIFOMailBox[0].RIR >> 21;
 
-// void CAN2_SCE_IRQ_Handler(void) {
-//   state = FAULT_SCE;
-//   can_sce(CAN2);
-//   llcan_clear_send(CAN2);
-// }
+    #ifdef DEBUG_CAN
+    puts("CAN2 RX: ");
+    puth(address);
+    puts("\n");
+    #endif
+
+    // CAN data buffer
+    uint8_t dat[8];
+
+    switch(address) {
+      case GRA_Neu: // ccstalk msg coming into oj533
+        for (int i=0; i<8; i++) {
+          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
+        }
+        if(dat[0] == volkswagen_pq_compute_checksum(address, dat, 8)){
+          if (dat[2] != ){
+            // if GRA_Sender is NOT 1 or 2, convert to 1
+          }
+          if (dat[1] != ){
+            // if GRA_Kodierinfo is NOT 1, convert to 1
+          }
+        }
+      default:
+        // FWD as-is
+        break;
+    }
+    // send to CAN3 with love from CAN2
+    can_send(&to_fwd, 2, false);
+    // next
+    can_rx(1);
+  }
+}
+
+void CAN2_SCE_IRQ_Handler(void) {
+  state = FAULT_SCE;
+  can_sce(CAN2);
+  llcan_clear_send(CAN2);
+}
 
 void CAN3_RX0_IRQ_Handler(void) {
   // From the DSU
@@ -387,97 +361,17 @@ void CAN3_RX0_IRQ_Handler(void) {
     uint16_t address = CAN3->sFIFOMailBox[0].RIR >> 21;
     
     #ifdef DEBUG_CAN
-    puts("CAN2 RX: ");
+    puts("CAN3 RX: ");
     puth(address);
     puts("\n");
+    #else
+    UNUSED(address);
     #endif
-    
-    // CAN data buffer
-    uint8_t dat[8];
 
-    switch (address) {
-      case DSU_ACC_CONTROL: // ACC_CTRL
-        if (op_ctrl_mode){
-          to_fwd.RIR &= 0xFFFFFFFE; // do not fwd
-          // op_ctrl_mode = 0; 
-          // for now, just set this flag until the next reboot
-        } else { 
-          for (int i=0; i<8; i++) {
-            dat[i] = GET_BYTE(&CAN3->sFIFOMailBox[0], i);
-          }
-          if(dat[7] == toyota_checksum(address, dat, 8)) {
-            // add permit_braking and recompute the checksum
-            dat[2] &= 0x3F; // mask off the top 2 bits
-            dat[2] |= (1 << 6U); // SET_ME_X01
-            dat[3] |= (1 << 6U); // permit_braking
-            dat[7] = toyota_checksum(address, dat, 8); 
-            if (enable_acc){ 
-              // modify this before sending to the car only if requested
-              dat[0] = (acc_cmd >> 8U);
-              dat[1] = (acc_cmd & 0xFF);
-            }
-            to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-            to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
-            // reset the timer for seeing the DSU
-            timeout = 0;
-            state = NO_FAULT;
-          } else {
-            // bad checksum
-            state = FAULT_BAD_CHECKSUM;
-            #ifdef DEBUG_CAN
-              for(int ii = 0; ii<8; ii++){ 
-                puth2(dat[ii]);
-              }
-              puts("\n expected: ");
-              puth2(toyota_checksum(address, dat, 8));
-              puts(" got: ");
-              puth2(dat[7]);
-              puts("\n");
-            #endif
-          }
-        }
-        break;
-      case DSU_AEB_CMD: // AEB BRAKING
-        for (int i=0; i<8; i++) {
-          dat[i] = GET_BYTE(&CAN3->sFIFOMailBox[0], i);
-        }
-        uint16_t stock_aeb = ((dat[0] << 8U) | dat[1]) >> 6U;
-        stock_aeb_active = (stock_aeb != 0);
-        //DS1STAT2 bit 10
-        //DS1STBK2 bit 13
-        if(dat[7] == toyota_checksum(address, dat, 8)) {
-          if (enable_aeb_control & !stock_aeb_active){ 
-            // modify this message before sending to the car only if requested and stock AEB is NOT active
-            dat[0] = (aeb_cmd >> 2U); // 10 bit msg
-            dat[1] = (((aeb_cmd << 8U) & 3U) << 6U) | (2 << 3U) | (2 << 0U);
-            dat[4] |= (1U << 6U); // BRKHLD
-            dat[7] = toyota_checksum(address, dat, 8);
-          }
-          to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-          to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
-        } else {
-          // bad checksum
-          state = FAULT_BAD_CHECKSUM;
-          #ifdef DEBUG_CAN
-            for(int ii = 0; ii<8; ii++){ 
-              puth2(dat[ii]);
-            }
-            puts("\n expected: ");
-            puth2(toyota_checksum(address, dat, 8));
-            puts(" got: ");
-            puth2(dat[7]);
-            puts("\n");
-          #endif
-        }
-        break;
-      default:
-        // FWD as-is
-        break;
-    }
-    // send to CAN1
-    can_send(&to_fwd, 0, false);
+    // send to CAN2
+    can_send(&to_fwd, 1, false);
     // next
-    can_rx(2);
+    can_rx(3);
   }
 }
 
