@@ -285,9 +285,9 @@ void CAN1_RX0_IRQ_Handler(void) {
           }
         }
         break;
-      if (msgPump == 1){
-        // artificial mACC_System 0x368 here
-      }
+    }
+    if (msgPump == 1){
+      // artificial mACC_System 0x368 here
     }
     // no forward, can 1 is injection
     can_send(&to_fwd, 0, false);
@@ -337,12 +337,14 @@ void CAN2_RX0_IRQ_Handler(void) {
           }
         }
         break;
-      case Kombi_3: // msg which contains signal KO3_Standzeit
+      case Kombi_3:
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
-        if(dat[3] < 5){ // 5 = 25 seconds of no ign
-          msgPump = 1
+        if(dat[3] < 5){ // 5 = 25 seconds of no ign // KO3_Standzeit signal
+          msgPump = 1;
+        } else {
+          msgPump = 0;
         }
       default:
         // FWD as-is
