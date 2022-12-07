@@ -237,11 +237,13 @@ bool send = 0;
 //------------- BUS 0 - EXT CAN --------------//
 
 #define mACC_System 0x368
-int targetDistance = 0
+bool msgPump = 0;
+int targetDistance = 0;
 
 //------------- BUS 1 - CAR PTCAN ------------//
 
 #define GRA_Neu 0x38A
+#define Kombi_3 0x520
 
 //------------- BUS 2 - GW PTCAN -------------//
 
@@ -283,6 +285,9 @@ void CAN1_RX0_IRQ_Handler(void) {
           }
         }
         break;
+      if (msgPump == 1){
+        // artificial mACC_System 0x368 here
+      }
     }
     // no forward, can 1 is injection
     can_send(&to_fwd, 0, false);
@@ -332,6 +337,13 @@ void CAN2_RX0_IRQ_Handler(void) {
           }
         }
         break;
+      case Kombi_3: // msg which contains signal KO3_Standzeit
+        for (int i=0; i<8; i++) {
+          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
+        }
+        if(dat[3] < 5){ // 5 = 25 seconds of no ign
+          msgPump = 1
+        }
       default:
         // FWD as-is
         break;
