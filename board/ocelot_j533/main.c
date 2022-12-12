@@ -329,12 +329,14 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
         if(dat[0] == volkswagen_pq_compute_checksum(address, dat, 8)){
-            // add permit_braking and recompute the checksum
-            dat[1] |= 0b01000010;   // Kodierinfo -> ACC
-            dat[2] &= ~0b01000000;  // Drop first bit of Sender to 0
-            dat[2] |=  0b00100000;  //Ensure last bit of Sender is 1
-            dat[0] = volkswagen_pq_compute_checksum(&to_fwd); 
-            msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
+          // add permit_braking and recompute the checksum
+          dat[1] |= 0b01000010;   // Kodierinfo -> ACC
+          dat[2] &= ~0b01000000;  // Drop first bit of Sender to 0
+          dat[2] |=  0b00100000;  //Ensure last bit of Sender is 1
+          dat[0] = volkswagen_pq_compute_checksum(&to_fwd); 
+          msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
+          to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
+          to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
         }
         break;
       default:
