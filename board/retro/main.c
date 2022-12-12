@@ -18,16 +18,18 @@
 #include "drivers/timer.h"
 
 #include "gpio.h"
-#include "crc.h"
+#include "safety.h"
+#include "drivers/gmlan_alt.h"
+
+#include "drivers/uart.h"
+  #include "drivers/usb.h"
 
 // uncomment for usb debugging via debug_console.py
-#define TGW_USB
-// #define DEBUG_CAN
-#define DEBUG_CTRL
+#define IBST_USB
+#define DEBUG
 
-#ifdef TGW_USB
-  #include "drivers/uart.h"
-  #include "drivers/usb.h"
+#ifdef IBST_USB
+
 #else
   // no serial either
   void puts(const char *a) {
@@ -49,12 +51,11 @@ void __initialize_hardware_early(void) {
   early();
 }
 
-#ifdef TGW_USB
+#ifdef IBST_USB
 
-#include "ocelot_j533/can.h"
+#include "ibst/can.h"
 
 // ********************* usb debugging *********************
-// TODO: neuter this if we are not debugging
 void debug_ring_callback(uart_ring *ring) {
   char rcv;
   while (getc(ring, &rcv) != 0) {
@@ -183,40 +184,29 @@ int usb_cb_control_msg(USB_Setup_TypeDef *setup, uint8_t *resp, bool hardwired) 
 #endif
 
 // ***************************** can port *****************************
-
-// Volkswagen PQ Checksum
-uint32_t volkswagen_pq_compute_checksum(CANPacket_t *to_push) {
-  int len = GET_LEN(to_push);
-  uint8_t checksum = 0U;
-
-  for (int i = 1; i < len; i++) {
-    checksum ^= (uint8_t)GET_BYTE(to_push, i);
-  }
-
-  return checksum;
-}
-
-#define CAN_UPDATE  0xF0 //bootloader
+#define CAN_UPDATE  0x341 //bootloader
 #define COUNTER_CYCLE 0xFU
-uint8_t counter = 0;
 
 void CAN1_TX_IRQ_Handler(void) {
   process_can(0);
 }
 
 void CAN2_TX_IRQ_Handler(void) {
+  // CAN2->TSR |= CAN_TSR_RQCP0;
   process_can(1);
 }
 
-void CAN3_TX_IRQ_Handler(void) {
-  process_can(2);
-}
+// void CAN3_TX_IRQ_Handler(void) {
+//   process_can(2);
+// }
 
-#define MAX_TIMEOUT 50U
-uint32_t timeout = 0;
-uint32_t timeout_f10 = 0;
-uint32_t timeout_f11 = 0;
 
+
+
+
+
+
+// Faults
 #define NO_FAULT 0U
 #define FAULT_BAD_CHECKSUM 1U
 #define FAULT_SEND 2U
@@ -224,53 +214,42 @@ uint32_t timeout_f11 = 0;
 #define FAULT_STARTUP 4U
 #define FAULT_TIMEOUT 5U
 #define FAULT_INVALID 6U
-#define STATE_AEB_CTRL 7U
+#define FAULT_COUNTER 7U
 
 uint8_t state = FAULT_STARTUP;
-uint8_t ctrl_mode = 0;
-bool send = 0;
 
-// Bus 0: Ext Can
-// Bus 1: Car PTCan
-// Bus 2: GW PTCan
+#define NO_EXTFAULT1 0U
+#define EXTFAULT1_CHECKSUM1 1U
+#define EXTFAULT1_CHECKSUM2 2U
+#define EXTFAULT1_CHECKSUM3 3U
+#define EXTFAULT1_SCE 4U
+#define EXTFAULT1_COUNTER1 5U
+#define EXTFAULT1_COUNTER2 6U
+#define EXTFAULT1_COUNTER3 7U
+#define EXTFAULT1_TIMEOUT 8U
+#define EXTFAULT1_SEND1 9U
+#define EXTFAULT1_SEND2 10U
+#define EXTFAULT1_SEND3 11U
 
-//------------- BUS 0 - EXT CAN --------------//
+uint8_t can2state = NO_EXTFAULT1;
 
-#define mACC_System 0x368
-bool msgPump = 0;
-int targetDistance = 0;
+#define NO_EXTFAULT2 0U
+#define EXTFAULT2_CHECKSUM1 1U
+#define EXTFAULT2_CHECKSUM2 2U
+#define EXTFAULT2_SCE 3U
+#define EXTFAULT2_COUNTER1 4U
+#define EXTFAULT2_COUNTER2 5U
+#define EXTFAULT2_TIMEOUT 6U
 
-//------------- BUS 1 - CAR PTCAN ------------//
-
-#define GRA_Neu 0x38A
-#define Kombi_3 0x520
-
-//------------- BUS 2 - GW PTCAN -------------//
-
-//                blank for now
-
-//------------- CAN FWDing below -------------//
 
 void CAN1_RX0_IRQ_Handler(void) {
   while ((CAN1->RF0R & CAN_RF0R_FMP0) != 0) {
-
-    CAN_FIFOMailBox_TypeDef to_fwd;
-    to_fwd.RIR = CAN1->sFIFOMailBox[0].RIR | 1; // TXQ
-    to_fwd.RDTR = CAN1->sFIFOMailBox[0].RDTR;
-    to_fwd.RDLR = CAN1->sFIFOMailBox[0].RDLR;
-    to_fwd.RDHR = CAN1->sFIFOMailBox[0].RDHR;
-
     uint16_t address = CAN1->sFIFOMailBox[0].RIR >> 21;
-
     #ifdef DEBUG_CAN
     puts("CAN1 RX: ");
     puth(address);
     puts("\n");
     #endif
-
-    // CAN data buffer
-    uint8_t dat[8];
-
     switch (address) {
       case CAN_UPDATE:
         if (GET_BYTES_04(&CAN1->sFIFOMailBox[0]) == 0xdeadface) {
@@ -285,15 +264,13 @@ void CAN1_RX0_IRQ_Handler(void) {
           }
         }
         break;
+
+        default:
+          puts("urm mum");
+          break;
     }
-    if (msgPump == 1){
-      // artificial mACC_System 0x368 here
-    }
-    // no forward, can 1 is injection
-    can_send(&to_fwd, 0, false);
-    // next
+
     can_rx(0);
-    // CAN1->RF0R |= CAN_RF0R_RFOM0;
   }
 }
 
@@ -303,45 +280,41 @@ void CAN1_SCE_IRQ_Handler(void) {
   llcan_clear_send(CAN1);
 }
 
+
 void CAN2_RX0_IRQ_Handler(void) {
   while ((CAN2->RF0R & CAN_RF0R_FMP0) != 0) {
-
+    
     CAN_FIFOMailBox_TypeDef to_fwd;
-    to_fwd.RIR = CAN2->sFIFOMailBox[0].RIR | 1; // TXQ
-    to_fwd.RDTR = CAN2->sFIFOMailBox[0].RDTR;
-    to_fwd.RDLR = CAN2->sFIFOMailBox[0].RDLR;
-    to_fwd.RDHR = CAN2->sFIFOMailBox[0].RDHR;
+    to_fwd.RIR = CAN1->sFIFOMailBox[0].RIR | 1; // TXQ
+    to_fwd.RDTR = CAN1->sFIFOMailBox[0].RDTR;
+    to_fwd.RDLR = CAN1->sFIFOMailBox[0].RDLR;
+    to_fwd.RDHR = CAN1->sFIFOMailBox[0].RDHR;
+
+    uint8_t dat[8];
 
     uint16_t address = CAN2->sFIFOMailBox[0].RIR >> 21;
-
     #ifdef DEBUG_CAN
     puts("CAN2 RX: ");
     puth(address);
     puts("\n");
     #endif
-
-    // CAN data buffer
-    uint8_t dat[8];
-
-    switch(address) {
-      case GRA_Neu: // ccstalk msg coming into oj533
+    switch (address) {
+      case 0x38A: // 906 - GRA_Neu
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
-        if(dat[0] == volkswagen_pq_compute_checksum(address, dat, 8)){
+
+        if(dat[0] == volkswagen_pq_compute_checksum(&to_fwd)) {
             // add permit_braking and recompute the checksum
-            dat[1] |= 0b01000010;   // Kodierinfo -> ACC
-            dat[2] &= ~0b01000000;  // Drop first bit of Sender to 0
-            dat[2] |=  0b00100000;  //Ensure last bit of Sender is 1
+            dat[1] |= 0b01000010; // mask off the top 2 bits
+            dat[2] &= ~0b01000000;
+            dat[2] |=  0b00100000;
             dat[0] = volkswagen_pq_compute_checksum(&to_fwd); 
-            msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
         }
-        break;
-      default:
-        // FWD as-is
+
         break;
     }
-    // send to CAN3 with love from CAN2
+    // Forward traffic
     can_send(&to_fwd, 2, false);
     // next
     can_rx(1);
@@ -354,120 +327,8 @@ void CAN2_SCE_IRQ_Handler(void) {
   llcan_clear_send(CAN2);
 }
 
-void CAN3_RX0_IRQ_Handler(void) {
-  // From the DSU
-  while ((CAN3->RF0R & CAN_RF0R_FMP0) != 0) {
-
-    CAN_FIFOMailBox_TypeDef to_fwd;
-    to_fwd.RIR = CAN3->sFIFOMailBox[0].RIR | 1; // TXQ
-    to_fwd.RDTR = CAN3->sFIFOMailBox[0].RDTR;
-    to_fwd.RDLR = CAN3->sFIFOMailBox[0].RDLR;
-    to_fwd.RDHR = CAN3->sFIFOMailBox[0].RDHR;
-
-    uint16_t address = CAN3->sFIFOMailBox[0].RIR >> 21;
-    
-    #ifdef DEBUG_CAN
-    puts("CAN3 RX: ");
-    puth(address);
-    puts("\n");
-    #else
-    UNUSED(address);
-    #endif
-
-    // send to CAN2 with love from CAN3
-    can_send(&to_fwd, 1, false);
-    // next
-    can_rx(3);
-  }
-}
-
-void CAN3_SCE_IRQ_Handler(void) {
-  state = FAULT_SCE;
-  can_sce(CAN3);
-  llcan_clear_send(CAN3);
-}
-
-void TIM3_IRQ_Handler(void) {
-
-  //send to EON. cap this to 50Hz
-  if (send){
-    if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
-      uint8_t dat[4];
-      dat[0] = 0;
-      dat[1] = ctrl_mode;
-      dat[2] = ((state & 0xFU) << 4) | (counter);
-      dat[3] = toyota_checksum(0x2FF, dat, 4);
-
-      CAN_FIFOMailBox_TypeDef to_send;
-      to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-      to_send.RDTR = 4;
-      to_send.RIR = (0x2FF << 21) | 1U;
-      can_send(&to_send, 0, false);
-
-      counter += 1;
-      counter &= COUNTER_CYCLE;
-    }
-    else {
-      // old can packet hasn't sent!
-      #ifdef DEBUG_CAN
-        puts("CAN1 MISS1\n");
-      #endif
-    }
-  }
-
-  send = !send;
-
-  // up timeouts
-  if (timeout == MAX_TIMEOUT) {
-    state = FAULT_TIMEOUT;
-  } else {
-    timeout += 1U;
-  }
-  if (timeout_f10 == MAX_TIMEOUT){
-    enable_acc = 0;
-    ctrl_mode &= 0xFE; // clear ACC ctrl mode bit
-  } else {
-    timeout_f10 += 1U;
-  }
-  if (timeout_f11 == MAX_TIMEOUT){
-    enable_aeb_control = 0;
-    ctrl_mode &= 0xFD; // clear AEB ctrl mode bit
-  } else {
-    timeout_f11 += 1U;
-  }
-  TIM3->SR = 0;
-
-  // check TIM2 for op_ctrl_mode timer
-  uint32_t op_ts = TIM2->CNT;
-  if (op_ts > 100000){
-    op_ctrl_mode = 0;
-  }
-
-#ifdef DEBUG_CTRL
-puts("enable_acc: ");
-puth2(enable_acc);
-puts("\nenable_aeb_control: ");
-puth2(enable_aeb_control);
-puts("\nacc_cmd: ");
-puth(acc_cmd);
-puts("\naeb_cmd: ");
-puth(aeb_cmd);
-puts("\nstate: ");
-puth2(state);
-puts(" ctrl_mode: ");
-puth2(ctrl_mode);
-puts("\n");
-#endif
-}
-
-// ***************************** main code *****************************
 
 
-void gw(void) {
-  // read/write
-  // maybe we can implement the ADC and DAC here for pedal functionality?
-  watchdog_feed();
-}
 
 int main(void) {
   // Init interrupt table
@@ -476,15 +337,15 @@ int main(void) {
   REGISTER_INTERRUPT(CAN1_TX_IRQn, CAN1_TX_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_1)
   REGISTER_INTERRUPT(CAN1_RX0_IRQn, CAN1_RX0_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_1)
   REGISTER_INTERRUPT(CAN1_SCE_IRQn, CAN1_SCE_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_1)
-  // REGISTER_INTERRUPT(CAN2_TX_IRQn, CAN2_TX_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_2)
-  // REGISTER_INTERRUPT(CAN2_RX0_IRQn, CAN2_RX0_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_2)
-  // REGISTER_INTERRUPT(CAN2_SCE_IRQn, CAN2_SCE_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_2)
-  REGISTER_INTERRUPT(CAN3_TX_IRQn, CAN3_TX_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_3)
-  REGISTER_INTERRUPT(CAN3_RX0_IRQn, CAN3_RX0_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_3)
-  REGISTER_INTERRUPT(CAN3_SCE_IRQn, CAN3_SCE_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_3)
+  REGISTER_INTERRUPT(CAN2_TX_IRQn, CAN2_TX_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_2)
+  REGISTER_INTERRUPT(CAN2_RX0_IRQn, CAN2_RX0_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_2)
+  REGISTER_INTERRUPT(CAN2_SCE_IRQn, CAN2_SCE_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_2)
+  //REGISTER_INTERRUPT(CAN3_TX_IRQn, CAN3_TX_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_3)
+  //REGISTER_INTERRUPT(CAN3_RX0_IRQn, CAN3_RX0_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_3)
+  //REGISTER_INTERRUPT(CAN3_SCE_IRQn, CAN3_SCE_IRQ_Handler, CAN_INTERRUPT_RATE, FAULT_INTERRUPT_RATE_CAN_3)
 
   // Should run at around 732Hz (see init below)
-  REGISTER_INTERRUPT(TIM3_IRQn, TIM3_IRQ_Handler, 1000U, FAULT_INTERRUPT_RATE_TIM3)
+  //REGISTER_INTERRUPT(TIM3_IRQn, TIM3_IRQ_Handler, 1000U, FAULT_INTERRUPT_RATE_TIM3)
 
   disable_interrupts();
 
@@ -494,18 +355,10 @@ int main(void) {
   detect_configuration();
   detect_board_type();
 
-  // init microsecond system timer
-  // increments 1000000 times per second
-  // generate an update to set the prescaler
-  TIM2->PSC = 48-1;
-  TIM2->CR1 = TIM_CR1_CEN;
-  TIM2->EGR = TIM_EGR_UG;
-  // use TIM2->CNT to read
-
   // init board
   current_board->init();
   // enable USB
-  #ifdef TGW_USB
+  #ifdef IBST_USB
   USBx->GOTGCTL |= USB_OTG_GOTGCTL_BVALOVAL;
   USBx->GOTGCTL |= USB_OTG_GOTGCTL_BVALOEN;
   usb_init();
@@ -516,31 +369,26 @@ int main(void) {
   if (!llcan_speed_set) {
     puts("Failed to set llcan1 speed");
   }
-  // llcan_speed_set = llcan_set_speed(CAN2, 5000, false, false);
-  // if (!llcan_speed_set) {
-  //   puts("Failed to set llcan2 speed");
-  // }
+  llcan_speed_set = llcan_set_speed(CAN2, 5000, false, false);
+  if (!llcan_speed_set) {
+    puts("Failed to set llcan2 speed");
+  }
   llcan_speed_set = llcan_set_speed(CAN3, 5000, false, false);
   if (!llcan_speed_set) {
     puts("Failed to set llcan3 speed");
   }
 
   bool ret = llcan_init(CAN1);
-  // ret = llcan_init(CAN2);
+  UNUSED(ret);
+  ret = llcan_init(CAN2);
+  UNUSED(ret);
   ret = llcan_init(CAN3);
   UNUSED(ret);
 
   // 48mhz / 65536 ~= 732
-  timer_init(TIM3, 7);
-  NVIC_EnableIRQ(TIM3_IRQn);
+  //timer_init(TIM3, 7);
+  //NVIC_EnableIRQ(TIM3_IRQn);
 
-  // TODO: figure out a function for these GPIOs
-  // set_gpio_mode(GPIOB, 12, MODE_OUTPUT);
-  // set_gpio_output_type(GPIOB, 12, OUTPUT_TYPE_PUSH_PULL);
-  // set_gpio_output(GPIOB, 12, 1);
-
-  // set_gpio_mode(GPIOB, 13, MODE_OUTPUT);
-  // set_gpio_output_type(GPIOB, 13, OUTPUT_TYPE_PUSH_PULL);
 
   watchdog_init();
 
@@ -549,7 +397,7 @@ int main(void) {
 
   // main pedal loop
   while (1) {
-    gw();
+    watchdog_feed();
   }
 
   return 0;
