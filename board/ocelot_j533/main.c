@@ -236,14 +236,11 @@ bool send = 0;
 
 //------------- BUS 0 - EXT CAN --------------//
 
-#define mACC_System 0x368
 bool msgPump = 0;
-int targetDistance = 0;
 
 //------------- BUS 1 - CAR PTCAN ------------//
 
 #define GRA_Neu 0x38A
-#define Kombi_3 0x520
 
 //------------- BUS 2 - GW PTCAN -------------//
 
@@ -285,9 +282,6 @@ void CAN1_RX0_IRQ_Handler(void) {
           }
         }
         break;
-    }
-    if (msgPump == 1){
-      // artificial mACC_System 0x368 here
     }
     // no forward, can 1 is injection
     can_send(&to_fwd, 0, false);
@@ -340,6 +334,7 @@ void CAN2_RX0_IRQ_Handler(void) {
         }
         break;
       default:
+        msgPump = 0;
         // FWD as-is
         break;
     }
@@ -390,23 +385,42 @@ void CAN3_SCE_IRQ_Handler(void) {
 }
 
 void TIM3_IRQ_Handler(void) {
-
-  //send to EON. cap this to 50Hz
-  if (send){
+  //100hz
+  if (msgPump){
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
-      uint8_t dat[4];
-      dat[0] = 0;
-      dat[1] = ctrl_mode;
-      dat[2] = ((state & 0xFU) << 4) | (counter);
-      dat[3] = toyota_checksum(0x2FF, dat, 4);
+      uint8_t dat[8]; //SEND mACC_System
+
+      dat[0] = volkswagen_pq_compute_checksum
 
       CAN_FIFOMailBox_TypeDef to_send;
       to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-      to_send.RDTR = 4;
-      to_send.RIR = (0x2FF << 21) | 1U;
-      can_send(&to_send, 0, false);
+      to_send.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
+      to_send.RDTR = 8;
+      to_send.RIR = (0x368 << 21) | 1U;
+      can_send(&to_send, 1, false);;
 
-      counter += 1;
+      counter++;
+      counter &= COUNTER_CYCLE;
+    }
+    else {
+      // old can packet hasn't sent!
+      #ifdef DEBUG_CAN
+        puts("CAN1 MISS1\n");
+      #endif
+    }
+    if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
+      uint8_t dat[8]; //SEND mACC_GRA_Anziege
+
+      dat[0] = volkswagen_pq_compute_checksum
+
+      CAN_FIFOMailBox_TypeDef to_send;
+      to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
+      to_send.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
+      to_send.RDTR = 8;
+      to_send.RIR = (0x56A << 21) | 1U;
+      can_send(&to_send, 1, false);;
+
+      counter++;
       counter &= COUNTER_CYCLE;
     }
     else {
@@ -417,49 +431,6 @@ void TIM3_IRQ_Handler(void) {
     }
   }
 
-  send = !send;
-
-  // up timeouts
-  if (timeout == MAX_TIMEOUT) {
-    state = FAULT_TIMEOUT;
-  } else {
-    timeout += 1U;
-  }
-  if (timeout_f10 == MAX_TIMEOUT){
-    enable_acc = 0;
-    ctrl_mode &= 0xFE; // clear ACC ctrl mode bit
-  } else {
-    timeout_f10 += 1U;
-  }
-  if (timeout_f11 == MAX_TIMEOUT){
-    enable_aeb_control = 0;
-    ctrl_mode &= 0xFD; // clear AEB ctrl mode bit
-  } else {
-    timeout_f11 += 1U;
-  }
-  TIM3->SR = 0;
-
-  // check TIM2 for op_ctrl_mode timer
-  uint32_t op_ts = TIM2->CNT;
-  if (op_ts > 100000){
-    op_ctrl_mode = 0;
-  }
-
-#ifdef DEBUG_CTRL
-puts("enable_acc: ");
-puth2(enable_acc);
-puts("\nenable_aeb_control: ");
-puth2(enable_aeb_control);
-puts("\nacc_cmd: ");
-puth(acc_cmd);
-puts("\naeb_cmd: ");
-puth(aeb_cmd);
-puts("\nstate: ");
-puth2(state);
-puts(" ctrl_mode: ");
-puth2(ctrl_mode);
-puts("\n");
-#endif
 }
 
 // ***************************** main code *****************************
