@@ -388,16 +388,23 @@ void TIM3_IRQ_Handler(void) {
   //100hz
   if (msgPump){
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
-      uint8_t dat[8]; //SEND mACC_System
+      uint8_t dat[8]; //SEND mACC_System 0x368
 
-      dat[0] = volkswagen_pq_compute_checksum
+      dat[0] = volkswagen_pq_compute_checksum;
+      dat[1] = ACS_Zaehler | ACS_Sta_ADR;
+      dat[2] = ACS_StSt_Info | ACS_MomEingriff | ACS_Typ_ACC | ACS_FreigSollB;
+      dat[3] = ACS_Sollbeschl;
+      dat[4] = ACS_Anhaltewunsch;
+      dat[5] = ACS_zul_Regelabw;
+      dat[6] = ACS_max_AendGrad;
+      dat[7] = 0b00000000;
 
       CAN_FIFOMailBox_TypeDef to_send;
       to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
       to_send.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
       to_send.RDTR = 8;
       to_send.RIR = (0x368 << 21) | 1U;
-      can_send(&to_send, 1, false);;
+      can_send(&to_send, 0, false);;
 
       counter++;
       counter &= COUNTER_CYCLE;
@@ -408,17 +415,24 @@ void TIM3_IRQ_Handler(void) {
         puts("CAN1 MISS1\n");
       #endif
     }
-    if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
+    if ((CAN1->TSR & CAN_TSR_TME1) == CAN_TSR_TME1) {
       uint8_t dat[8]; //SEND mACC_GRA_Anziege
 
-      dat[0] = volkswagen_pq_compute_checksum
+      dat[0] = volkswagen_pq_compute_checksum;
+      dat[1] = ACA_StaACC;
+      dat[2] = ACA_Fahrerhinw | ACA_AnzDisplay | ACA_Zeitluecke;
+      dat[3] = ACA_V_Wunsch;
+      dat[4] = ACA_kmh_mph | ACA_Akustik1 | ACA_Akustik2 | ACA_PrioDisp;
+      dat[5] = ACA_gemZeitl;
+      dat[6] = 0b00000000;
+      dat[7] = ACA_Codierung | ACA_Zaehler;
 
       CAN_FIFOMailBox_TypeDef to_send;
       to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
       to_send.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
       to_send.RDTR = 8;
       to_send.RIR = (0x56A << 21) | 1U;
-      can_send(&to_send, 1, false);;
+      can_send(&to_send, 0, false);;
 
       counter++;
       counter &= COUNTER_CYCLE;
