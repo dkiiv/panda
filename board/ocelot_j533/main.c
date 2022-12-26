@@ -386,7 +386,22 @@ void CAN3_SCE_IRQ_Handler(void) {
 
 void TIM3_IRQ_Handler(void) {
   //100hz
-  if (msgPump){
+  if (msgPump) {
+    ACS_Zaehler = counter;        //idx in OP, is a counter
+    if (enabledCHANGEME) {        // 
+      ACS_Sta_ADR = 0b00000100;   //ADR Status (1 active)
+      ACS_FreigSollB = 0b00000001;//Activation of ACS_Sollbeschl (1 allowed)
+    } else {
+      ACS_Sta_ADR = 0b00001000;   //ADR Status (2 passive)
+      ACS_FreigSollB = 0b00000000;//Activation of ACS_Sollbeschl (0 not allowed)
+    }
+    ACS_StSt_Info = 0b01000000;   //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
+    ACS_MomEingriff = 0b00000000; //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
+    ACS_Typ_ACC = 0b00001000;     //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
+    ACS_Sollbeschl = 0b11111111;  //Acceleration Request (2046(10.23) ADR Inactive)
+    ACS_Sollbeschl2 = 0b11000000; //pt2 of sg above as it is 11 bits long. Need to figure out how to derive this sg value in ocelot so that car
+                                  //  can maintain functional cruisecontrol with module installed and OP not in control. | will eventually live in if (enabled){}
+
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
 
@@ -394,7 +409,7 @@ void TIM3_IRQ_Handler(void) {
       dat[1] = ACS_Zaehler | ACS_Sta_ADR;
       dat[2] = ACS_StSt_Info | ACS_MomEingriff | ACS_Typ_ACC | ACS_FreigSollB;
       dat[3] = ACS_Sollbeschl;
-      dat[4] = ACS_Anhaltewunsch;
+      dat[4] = ACS_Sollbeschl2 | ACS_Anhaltewunsch;
       dat[5] = ACS_zul_Regelabw;
       dat[6] = ACS_max_AendGrad;
       dat[7] = 0b00000000;
