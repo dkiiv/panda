@@ -237,6 +237,30 @@ bool send = 0;
 //------------- BUS 0 - EXT CAN --------------//
 
 bool msgPump = 0;
+uint8_t ACS_Zaehler = 0b00000000;          //idx in OP, is a counter
+uint8_t ACA_Zaehler = 0b00000000;          //idx in OP, is a counter
+uint8_t ACS_Sta_ADR = 0b00000000;     //ADR Status (1 active)
+uint8_t ACS_FreigSollB = 0b00000000;  //Activation of ACS_Sollbeschl (1 allowed)
+uint8_t ACA_StaACC = 0b00000000;      //ADR Status in cluster (3 ACC Active)
+uint8_t ACA_AnzDisplay = 0b00000000;  //ADR Display Status (1 Display)
+uint8_t ACS_StSt_Info = 0b00000000;     //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
+uint8_t ACS_MomEingriff = 0b00000000;   //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
+uint8_t ACS_Typ_ACC = 0b00000000;       //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
+uint8_t ACS_Sollbeschl = 0b00000000;    //Acceleration Request (2046(10.23) ADR Inactive)
+uint8_t ACS_Sollbeschl2 = 0b00000000;   //pt2 of sg above as it is 11 bits long. Need to figure out how to derive this sg value in ocelot so that car
+                                        //  can maintain functional cruisecontrol with module installed and OP not in control. | will eventually live in if (enabled){}
+uint8_t ACS_Anhaltewunsch = 0b00000000; //Stopping request (0 no stop request)
+uint8_t ACS_zul_Regelabw = 0b00000000;  //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
+uint8_t ACS_max_AendGrad = 0b00000000;  //Allowed gradient changes (0) | sg is unknown, will change later
+uint8_t ACA_Fahrerhinw = 0b00000000;    //ADR Driver Warning, max limit reached (0 Off)
+uint8_t ACA_Zeitluecke = 0b00000000;    //Display set time gap (0 not defined / 1-15 Distances)
+uint8_t ACA_V_Wunsch = 0b00000000;      //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
+uint8_t ACA_kmh_mph = 0b00000000;       //Display KMh or Mph
+uint8_t ACA_Akustik1 = 0b00000000;      //Soft cluster gong (0 off)
+uint8_t ACA_Akustik2 = 0b00000000;      //Hard cluster buzzer (0 off)
+uint8_t ACA_PrioDisp = 0b00000000;      //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
+uint8_t ACA_gemZeitl = 0b00000000;      //Average follow distance (0 No lead / 1-15 Actual average distance)
+uint8_t ACA_Codierung = 0b00000000;     //Coding (0 acc)
 
 //------------- BUS 1 - CAR PTCAN ------------//
 
@@ -388,6 +412,7 @@ void TIM3_IRQ_Handler(void) {
   //100hz
   if (msgPump) {
     uint8_t ACS_Zaehler = counter;          //idx in OP, is a counter
+    uint8_t ACA_Zaehler = counter;          //idx in OP, is a counter
     if (false) {                    //if cruisecontrol ON
       uint8_t ACS_Sta_ADR = 0b00000100;     //ADR Status (1 active)
       uint8_t ACS_FreigSollB = 0b00000001;  //Activation of ACS_Sollbeschl (1 allowed)
@@ -409,6 +434,14 @@ void TIM3_IRQ_Handler(void) {
     uint8_t ACS_zul_Regelabw = 0b11111110;  //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
     uint8_t ACS_max_AendGrad = 0b00000000;  //Allowed gradient changes (0) | sg is unknown, will change later
     uint8_t ACA_Fahrerhinw = 0b00000000;    //ADR Driver Warning, max limit reached (0 Off)
+    uint8_t ACA_Zeitluecke = 0b00000100;    //Display set time gap (0 not defined / 1-15 Distances)
+    uint8_t ACA_V_Wunsch = 0b11111111;      //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
+    uint8_t ACA_kmh_mph = 0b10000000;       //Display KMh or Mph
+    uint8_t ACA_Akustik1 = 0b00000000;      //Soft cluster gong (0 off)
+    uint8_t ACA_Akustik2 = 0b00000000;      //Hard cluster buzzer (0 off)
+    uint8_t ACA_PrioDisp = 0b00001000;      //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
+    uint8_t ACA_gemZeitl = 0b00000000;      //Average follow distance (0 No lead / 1-15 Actual average distance)
+    uint8_t ACA_Codierung = 0b00000000;     //Coding (0 acc)
 
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
