@@ -237,30 +237,31 @@ bool send = 0;
 //------------- BUS 0 - EXT CAN --------------//
 
 bool msgPump = 0;
-uint8_t ACS_Zaehler = 0b00000000;          //idx in OP, is a counter
-uint8_t ACA_Zaehler = 0b00000000;          //idx in OP, is a counter
-uint8_t ACS_Sta_ADR = 0b00000000;     //ADR Status (1 active)
-uint8_t ACS_FreigSollB = 0b00000000;  //Activation of ACS_Sollbeschl (1 allowed)
-uint8_t ACA_StaACC = 0b00000000;      //ADR Status in cluster (3 ACC Active)
-uint8_t ACA_AnzDisplay = 0b00000000;  //ADR Display Status (1 Display)
-uint8_t ACS_StSt_Info = 0b00000000;     //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
-uint8_t ACS_MomEingriff = 0b00000000;   //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
-uint8_t ACS_Typ_ACC = 0b00000000;       //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
-uint8_t ACS_Sollbeschl = 0b00000000;    //Acceleration Request (2046(10.23) ADR Inactive)
-uint8_t ACS_Sollbeschl2 = 0b00000000;   //pt2 of sg above as it is 11 bits long. Need to figure out how to derive this sg value in ocelot so that car
-                                        //  can maintain functional cruisecontrol with module installed and OP not in control. | will eventually live in if (enabled){}
-uint8_t ACS_Anhaltewunsch = 0b00000000; //Stopping request (0 no stop request)
-uint8_t ACS_zul_Regelabw = 0b00000000;  //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
-uint8_t ACS_max_AendGrad = 0b00000000;  //Allowed gradient changes (0) | sg is unknown, will change later
-uint8_t ACA_Fahrerhinw = 0b00000000;    //ADR Driver Warning, max limit reached (0 Off)
-uint8_t ACA_Zeitluecke = 0b00000000;    //Display set time gap (0 not defined / 1-15 Distances)
-uint8_t ACA_V_Wunsch = 0b00000000;      //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
-uint8_t ACA_kmh_mph = 0b00000000;       //Display KMh or Mph
-uint8_t ACA_Akustik1 = 0b00000000;      //Soft cluster gong (0 off)
-uint8_t ACA_Akustik2 = 0b00000000;      //Hard cluster buzzer (0 off)
-uint8_t ACA_PrioDisp = 0b00000000;      //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
-uint8_t ACA_gemZeitl = 0b00000000;      //Average follow distance (0 No lead / 1-15 Actual average distance)
-uint8_t ACA_Codierung = 0b00000000;     //Coding (0 acc)
+uint8_t idxPump = 0;              //counter
+uint8_t ACS_Zaehler = 0;          //counter
+uint8_t ACA_Zaehler = 0;          //counter
+uint8_t ACS_Sta_ADR = 0;          //ADR Status (1 active)
+uint8_t ACS_FreigSollB = 0;       //Activation of ACS_Sollbeschl (1 allowed)
+uint8_t ACA_StaACC = 0;           //ADR Status in cluster (3 ACC Active)
+uint8_t ACA_AnzDisplay = 0;       //ADR Display Status (1 Display)
+uint8_t ACS_StSt_Info = 0;        //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
+uint8_t ACS_MomEingriff = 0;      //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
+uint8_t ACS_Typ_ACC = 0;          //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
+uint8_t ACS_Sollbeschl = 0;       //Acceleration Request (2046(10.23) ADR Inactive)
+uint8_t ACS_Sollbeschl2 = 0;      //pt2 of sg above as it is 11 bits long. Need to figure out how to derive this sg value in ocelot so that car
+                                  //  can maintain functional cruisecontrol with module installed and OP not in control. | will eventually live in if (enabled){}
+uint8_t ACS_Anhaltewunsch = 0;    //Stopping request (0 no stop request)
+uint8_t ACS_zul_Regelabw = 0;     //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
+uint8_t ACS_max_AendGrad = 0;     //Allowed gradient changes (0) | sg is unknown, will change later
+uint8_t ACA_Fahrerhinw = 0;       //ADR Driver Warning, max limit reached (0 Off)
+uint8_t ACA_Zeitluecke = 0;       //Display set time gap (0 not defined / 1-15 Distances)
+uint8_t ACA_V_Wunsch = 0;         //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
+uint8_t ACA_kmh_mph = 0;          //Display KMh or Mph
+uint8_t ACA_Akustik1 = 0;         //Soft cluster gong (0 off)
+uint8_t ACA_Akustik2 = 0;         //Hard cluster buzzer (0 off)
+uint8_t ACA_PrioDisp = 0;         //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
+uint8_t ACA_gemZeitl = 0;         //Average follow distance (0 No lead / 1-15 Actual average distance)
+uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 
 //------------- BUS 1 - CAR PTCAN ------------//
 
@@ -411,49 +412,51 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   //100hz
   if (msgPump) {
-    uint8_t ACS_Zaehler = counter;          //idx in OP, is a counter
-    uint8_t ACA_Zaehler = counter;          //idx in OP, is a counter
+    idxPump++;
+    idxPump &= 15;
+    ACS_Zaehler = idxPump;          //idx in OP, is a counter
+    ACA_Zaehler = idxPump;          //idx in OP, is a counter
     if (false) {                    //if cruisecontrol ON
-      uint8_t ACS_Sta_ADR = 0b00000100;     //ADR Status (1 active)
-      uint8_t ACS_FreigSollB = 0b00000001;  //Activation of ACS_Sollbeschl (1 allowed)
-      uint8_t ACA_StaACC = 0b11000000;      //ADR Status in cluster (3 ACC Active)
-      uint8_t ACA_AnzDisplay = 0b01000000;  //ADR Display Status (1 Display)
+      ACS_Sta_ADR = 1;              //ADR Status (1 active)
+      ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
+      ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
+      ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
     } else {
-      uint8_t ACS_Sta_ADR = 0b00001000;     //ADR Status (2 passive)
-      uint8_t ACS_FreigSollB = 0b00000000;  //Activation of ACS_Sollbeschl (0 not allowed)
-      uint8_t ACA_StaACC = 0b10000000;      //ADR Status in cluster (2 ACC Passive)
-      uint8_t ACA_AnzDisplay = 0b00000000;  //ADR Display Status (0 Display)
+      ACS_Sta_ADR = 2;              //ADR Status (2 passive)
+      ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
+      ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
+      ACA_AnzDisplay = 0;           //ADR Display Status (0 Display)
     }
-    uint8_t ACS_StSt_Info = 0b01000000;     //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
-    uint8_t ACS_MomEingriff = 0b00000000;   //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
-    uint8_t ACS_Typ_ACC = 0b00001000;       //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
-    uint8_t ACS_Sollbeschl = 0b11111111;    //Acceleration Request (2046(10.23) ADR Inactive)
-    uint8_t ACS_Sollbeschl2 = 0b11000000;   //pt2 of sg above as it is 11 bits long. Need to figure out how to derive this sg value in ocelot so that car
+    ACS_StSt_Info = 1;              //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
+    ACS_MomEingriff = 0;            //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
+    ACS_Typ_ACC = 1;                //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
+    ACS_Sollbeschl = 0b11111111;    //Acceleration Request (2046(10.23) ADR Inactive)
+    ACS_Sollbeschl2 = 0b11000000;   //pt2 of sg above as it is 11 bits long. Need to figure out how to derive this sg value in ocelot so that car
                                             //  can maintain functional cruisecontrol with module installed and OP not in control. | will eventually live in if (enabled){}
-    uint8_t ACS_Anhaltewunsch = 0b00000000; //Stopping request (0 no stop request)
-    uint8_t ACS_zul_Regelabw = 0b11111110;  //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
-    uint8_t ACS_max_AendGrad = 0b00000000;  //Allowed gradient changes (0) | sg is unknown, will change later
-    uint8_t ACA_Fahrerhinw = 0b00000000;    //ADR Driver Warning, max limit reached (0 Off)
-    uint8_t ACA_Zeitluecke = 0b00000100;    //Display set time gap (0 not defined / 1-15 Distances)
-    uint8_t ACA_V_Wunsch = 0b11111111;      //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
-    uint8_t ACA_kmh_mph = 0b10000000;       //Display KMh or Mph
-    uint8_t ACA_Akustik1 = 0b00000000;      //Soft cluster gong (0 off)
-    uint8_t ACA_Akustik2 = 0b00000000;      //Hard cluster buzzer (0 off)
-    uint8_t ACA_PrioDisp = 0b00001000;      //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
-    uint8_t ACA_gemZeitl = 0b00000000;      //Average follow distance (0 No lead / 1-15 Actual average distance)
-    uint8_t ACA_Codierung = 0b00000000;     //Coding (0 acc)
+    ACS_Anhaltewunsch = 0;          //Stopping request (0 no stop request)
+    ACS_zul_Regelabw = 254;         //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
+    ACS_max_AendGrad = 0;           //Allowed gradient changes (0) | sg is unknown, will change later
+    ACA_Fahrerhinw = 0;             //ADR Driver Warning, max limit reached (0 Off)
+    ACA_Zeitluecke = 1;             //Display set time gap (0 not defined / 1-15 Distances)
+    ACA_V_Wunsch = 255;             //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
+    ACA_kmh_mph = 1;                //Display KMh or Mph (1 mph)
+    ACA_Akustik1 = 0;               //Soft cluster gong (0 off)
+    ACA_Akustik2 = 0;               //Hard cluster buzzer (0 off)
+    ACA_PrioDisp = 1;               //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
+    ACA_gemZeitl = 0;               //Average follow distance (0 No lead / 1-15 Actual average distance)
+    ACA_Codierung = 0;              //Coding (0 acc)
 
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
 
       dat[0] = volkswagen_pq_compute_checksum;
-      dat[1] = ACS_Zaehler | ACS_Sta_ADR;
-      dat[2] = ACS_StSt_Info | ACS_MomEingriff | ACS_Typ_ACC | ACS_FreigSollB;
+      dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
+      dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
       dat[3] = ACS_Sollbeschl;
-      dat[4] = ACS_Sollbeschl2 | ACS_Anhaltewunsch;
+      dat[4] = ACS_Sollbeschl2 | ACS_Anhaltewunsch << 1U;
       dat[5] = ACS_zul_Regelabw;
       dat[6] = ACS_max_AendGrad;
-      dat[7] = 0b00000000;
+      dat[7] = 0;
 
       CAN_FIFOMailBox_TypeDef to_send;
       to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
@@ -475,13 +478,13 @@ void TIM3_IRQ_Handler(void) {
       uint8_t dat[8]; //SEND mACC_GRA_Anziege
 
       dat[0] = volkswagen_pq_compute_checksum;
-      dat[1] = ACA_StaACC;
-      dat[2] = ACA_Fahrerhinw | ACA_AnzDisplay | ACA_Zeitluecke;
+      dat[1] = ACA_StaACC << 6U;
+      dat[2] = ACA_Fahrerhinw << 7U | ACA_AnzDisplay << 6U | ACA_Zeitluecke << 2U;
       dat[3] = ACA_V_Wunsch;
-      dat[4] = ACA_kmh_mph | ACA_Akustik1 | ACA_Akustik2 | ACA_PrioDisp;
-      dat[5] = ACA_gemZeitl;
+      dat[4] = ACA_kmh_mph << 7U | ACA_Akustik1 << 6U | ACA_Akustik2 << 5U | ACA_PrioDisp << 3U;
+      dat[5] = ACA_gemZeitl << 4U;
       dat[6] = 0b00000000;
-      dat[7] = ACA_Codierung | ACA_Zaehler;
+      dat[7] = ACA_Codierung << 7U | ACA_Zaehler;
 
       CAN_FIFOMailBox_TypeDef to_send;
       to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
