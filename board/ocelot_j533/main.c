@@ -247,9 +247,7 @@ uint8_t ACA_AnzDisplay = 0;       //ADR Display Status (1 Display)
 uint8_t ACS_StSt_Info = 0;        //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
 uint8_t ACS_MomEingriff = 0;      //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
 uint8_t ACS_Typ_ACC = 0;          //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
-uint8_t ACS_Sollbeschl = 0;       //Acceleration Request (2046(10.23) ADR Inactive)
-uint8_t ACS_Sollbeschl2 = 0;      //pt2 of sg above as it is 11 bits long. Need to figure out how to derive this sg value in ocelot so that car
-                                  //  can maintain functional cruisecontrol with module installed and OP not in control. | will eventually live in if (enabled){}
+uint16_t ACS_Sollbeschl = 0;      //Acceleration Request (2046(10.23) ADR Inactive)
 uint8_t ACS_Anhaltewunsch = 0;    //Stopping request (0 no stop request)
 uint8_t ACS_zul_Regelabw = 0;     //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
 uint8_t ACS_max_AendGrad = 0;     //Allowed gradient changes (0) | sg is unknown, will change later
@@ -266,6 +264,8 @@ uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 //------------- BUS 1 - CAR PTCAN ------------//
 
 #define GRA_Neu 0x38A
+#define mMotor_2 0x288
+uint8_t MO2_GRA_Soll = 0;         //set GRA target speed from ECU
 
 //------------- BUS 2 - GW PTCAN -------------//
 
@@ -358,6 +358,12 @@ void CAN2_RX0_IRQ_Handler(void) {
           to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
         }
         break;
+      case mMotor_2: // msg containing MO2_GRA_Soll, our GRA set speed from ECU
+        for (int i=0; i<8; i++) {
+          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
+        }
+        MO2_GRA_Soll = dat[4];
+        break;
       default:
         msgPump = 0;
         // FWD as-is
@@ -430,21 +436,23 @@ void TIM3_IRQ_Handler(void) {
     ACS_StSt_Info = 1;              //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
     ACS_MomEingriff = 0;            //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
     ACS_Typ_ACC = 1;                //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
-    ACS_Sollbeschl = 0b11111111;    //Acceleration Request (2046(10.23) ADR Inactive)
-    ACS_Sollbeschl2 = 0b11000000;   //pt2 of sg above as it is 11 bits long. Need to figure out how to derive this sg value in ocelot so that car
-                                            //  can maintain functional cruisecontrol with module installed and OP not in control. | will eventually live in if (enabled){}
+    ACS_Sollbeschl = 2046;          //Acceleration Request (2046(10.23) ADR Inactive)
     ACS_Anhaltewunsch = 0;          //Stopping request (0 no stop request)
     ACS_zul_Regelabw = 254;         //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
     ACS_max_AendGrad = 0;           //Allowed gradient changes (0) | sg is unknown, will change later
     ACA_Fahrerhinw = 0;             //ADR Driver Warning, max limit reached (0 Off)
     ACA_Zeitluecke = 1;             //Display set time gap (0 not defined / 1-15 Distances)
-    ACA_V_Wunsch = 255;             //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
     ACA_kmh_mph = 1;                //Display KMh or Mph (1 mph)
     ACA_Akustik1 = 0;               //Soft cluster gong (0 off)
     ACA_Akustik2 = 0;               //Hard cluster buzzer (0 off)
     ACA_PrioDisp = 1;               //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
     ACA_gemZeitl = 0;               //Average follow distance (0 No lead / 1-15 Actual average distance)
-    ACA_Codierung = 0;              //Coding (0 acc)
+    ACA_Codierung = 1;              //Coding (1 GRA/CC)
+    if (MO2_GRA_Soll > 254) {
+      ACA_V_Wunsch = 255;           //Display set speed (255 not set yet)
+    } else {
+      ACA_V_Wunsch = MO2_GRA_Soll;  //Mirror ECU set speed
+    }
 
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
@@ -452,8 +460,8 @@ void TIM3_IRQ_Handler(void) {
       dat[0] = volkswagen_pq_compute_checksum;
       dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
       dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
-      dat[3] = ACS_Sollbeschl;
-      dat[4] = ACS_Sollbeschl2 | ACS_Anhaltewunsch << 1U;
+      dat[3] = (ACS_Sollbeschl >> 3U) & 0xFF;
+      dat[4] = (ACS_Sollbeschl & 7U) << 5U | (ACS_Anhaltewunsch << 1U) & 0xF;
       dat[5] = ACS_zul_Regelabw;
       dat[6] = ACS_max_AendGrad;
       dat[7] = 0;
@@ -483,7 +491,7 @@ void TIM3_IRQ_Handler(void) {
       dat[3] = ACA_V_Wunsch;
       dat[4] = ACA_kmh_mph << 7U | ACA_Akustik1 << 6U | ACA_Akustik2 << 5U | ACA_PrioDisp << 3U;
       dat[5] = ACA_gemZeitl << 4U;
-      dat[6] = 0b00000000;
+      dat[6] = 0;
       dat[7] = ACA_Codierung << 7U | ACA_Zaehler;
 
       CAN_FIFOMailBox_TypeDef to_send;
