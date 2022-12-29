@@ -53,6 +53,8 @@ void __initialize_hardware_early(void) {
 
 #include "ocelot_j533/can.h"
 
+set_intercept_relay(true); //remove when real ocelot is obtained
+
 // ********************* usb debugging *********************
 // TODO: neuter this if we are not debugging
 void debug_ring_callback(uart_ring *ring) {
