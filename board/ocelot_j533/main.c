@@ -53,7 +53,9 @@ void __initialize_hardware_early(void) {
 
 #include "ocelot_j533/can.h"
 
-set_intercept_relay(true); //remove when real ocelot is obtained
+void interceptRelay(void){
+  set_intercept_relay(true); //remove when real ocelot is obtained
+}
 
 // ********************* usb debugging *********************
 // TODO: neuter this if we are not debugging
@@ -187,15 +189,12 @@ int usb_cb_control_msg(USB_Setup_TypeDef *setup, uint8_t *resp, bool hardwired) 
 // ***************************** can port *****************************
 
 // Volkswagen PQ Checksum
-uint32_t volkswagen_pq_compute_checksum(CANPacket_t *to_push) {
-  int len = GET_LEN(to_push);
-  uint8_t checksum = 0U;
-
-  for (int i = 1; i < len; i++) {
-    checksum ^= (uint8_t)GET_BYTE(to_push, i);
+uint8_t volkswagen_pq_compute_checksum(void) {
+  uint8_t checksum = 0;
+  for (unsigned int i = 0; i < 256; i++) {
+    checksum += (uint8_t)i;
   }
-
-  return checksum;
+  return checksum & 0xFF;
 }
 
 #define CAN_UPDATE  0xF0 //bootloader
@@ -293,7 +292,7 @@ void CAN1_RX0_IRQ_Handler(void) {
     #endif
 
     // CAN data buffer
-    uint8_t dat[8];
+    //uint8_t dat[8];
 
     switch (address) {
       case CAN_UPDATE:
@@ -349,12 +348,12 @@ void CAN2_RX0_IRQ_Handler(void) {
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
-        if(dat[0] == volkswagen_pq_compute_checksum(address, dat, 8)){
+        if(dat[0] == volkswagen_pq_compute_checksum()){
           // add permit_braking and recompute the checksum
           dat[1] |= 0b01000010;   // Kodierinfo -> ACC
           dat[2] &= ~0b01000000;  // Drop first bit of Sender to 0
           dat[2] |=  0b00100000;  //Ensure last bit of Sender is 1
-          dat[0] = volkswagen_pq_compute_checksum(&to_fwd); 
+          dat[0] = volkswagen_pq_compute_checksum(); 
           msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
           to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
           to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
@@ -459,11 +458,11 @@ void TIM3_IRQ_Handler(void) {
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
 
-      dat[0] = volkswagen_pq_compute_checksum;
+      dat[0] = volkswagen_pq_compute_checksum();
       dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
       dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
       dat[3] = (ACS_Sollbeschl >> 3U) & 0xFF;
-      dat[4] = (ACS_Sollbeschl & 7U) << 5U | (ACS_Anhaltewunsch << 1U) & 0xF;
+      dat[4] = (ACS_Sollbeschl & 7U) << 5U | ACS_Anhaltewunsch << 1U;
       dat[5] = ACS_zul_Regelabw;
       dat[6] = ACS_max_AendGrad;
       dat[7] = 0;
@@ -487,7 +486,7 @@ void TIM3_IRQ_Handler(void) {
     if ((CAN1->TSR & CAN_TSR_TME1) == CAN_TSR_TME1) {
       uint8_t dat[8]; //SEND mACC_GRA_Anziege
 
-      dat[0] = volkswagen_pq_compute_checksum;
+      dat[0] = volkswagen_pq_compute_checksum();
       dat[1] = ACA_StaACC << 6U;
       dat[2] = ACA_Fahrerhinw << 7U | ACA_AnzDisplay << 6U | ACA_Zeitluecke << 2U;
       dat[3] = ACA_V_Wunsch;
