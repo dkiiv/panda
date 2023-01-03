@@ -442,7 +442,7 @@ void TIM3_IRQ_Handler(void) {
     ACA_Akustik2 = 0;               //Hard cluster buzzer (0 off)
     ACA_PrioDisp = 1;               //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
     ACA_gemZeitl = 0;               //Average follow distance (0 No lead / 1-15 Actual average distance)
-    ACA_Codierung = 1;              //Coding (1 GRA/CC)
+    ACA_Codierung = 0;              //Coding (0 ACC) | Need to try flipping this on the fly later on for testing normal CC functionality
     if (MO2_GRA_Soll > 254) {
       ACA_V_Wunsch = 255;           //Display set speed (255 not set yet)
     } else {
