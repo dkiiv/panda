@@ -189,10 +189,10 @@ int usb_cb_control_msg(USB_Setup_TypeDef *setup, uint8_t *resp, bool hardwired) 
 // ***************************** can port *****************************
 
 // Volkswagen PQ Checksum
-uint8_t volkswagen_pq_compute_checksum(uint8_t *dat, int len) {
-  uint8_t checksum = 0U;
-  for (int i = 0; i < len; i++) {
-    checksum += dat[i];
+uint8_t volkswagen_pq_compute_checksum(void) {
+  uint8_t checksum = 0;
+  for (unsigned int i = 0; i < 256; i++) {
+    checksum += (uint8_t)i;
   }
   return checksum & 0xFF;
 }
@@ -238,6 +238,7 @@ bool send = 0;
 //------------- BUS 0 - EXT CAN --------------//
 
 bool msgPump = 0;
+uint8_t idxPump = 0;              //counter
 uint8_t ACS_Zaehler = 0;          //counter
 uint8_t ACA_Zaehler = 0;          //counter
 uint8_t ACS_Sta_ADR = 0;          //ADR Status (1 active)
@@ -347,12 +348,12 @@ void CAN2_RX0_IRQ_Handler(void) {
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
-        if(dat[0] == volkswagen_pq_compute_checksum(dat, 8)){
+        if(dat[0] == volkswagen_pq_compute_checksum()){
           // add permit_braking and recompute the checksum
           dat[1] |= 0b01000010;   // Kodierinfo -> ACC
           dat[2] &= ~0b01000000;  // Drop first bit of Sender to 0
           dat[2] |=  0b00100000;  //Ensure last bit of Sender is 1
-          dat[0] = volkswagen_pq_compute_checksum(dat, 8); 
+          dat[0] = volkswagen_pq_compute_checksum(); 
           msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
           to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
           to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
@@ -365,6 +366,7 @@ void CAN2_RX0_IRQ_Handler(void) {
         MO2_GRA_Soll = dat[4];
         break;
       default:
+        msgPump = 0;
         // FWD as-is
         break;
     }
@@ -417,6 +419,10 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   //100hz
   if (msgPump) {
+    idxPump++;
+    idxPump &= 15;
+    ACS_Zaehler = idxPump;          //idx in OP, is a counter
+    ACA_Zaehler = idxPump;          //idx in OP, is a counter
     if (false) {                    //if cruisecontrol ON
       ACS_Sta_ADR = 1;              //ADR Status (1 active)
       ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
@@ -452,7 +458,7 @@ void TIM3_IRQ_Handler(void) {
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
 
-      dat[0] = volkswagen_pq_compute_checksum(dat, 8);
+      dat[0] = volkswagen_pq_compute_checksum();
       dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
       dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
       dat[3] = (ACS_Sollbeschl >> 3U) & 0xFF;
@@ -468,8 +474,8 @@ void TIM3_IRQ_Handler(void) {
       to_send.RIR = (0x368 << 21) | 1U;
       can_send(&to_send, 0, false);;
 
-      ACS_Zaehler++;
-      ACS_Zaehler &= 15;
+      counter++;
+      counter &= COUNTER_CYCLE;
     }
     else {
       // old can packet hasn't sent!
@@ -480,7 +486,7 @@ void TIM3_IRQ_Handler(void) {
     if ((CAN1->TSR & CAN_TSR_TME1) == CAN_TSR_TME1) {
       uint8_t dat[8]; //SEND mACC_GRA_Anziege
 
-      dat[0] = volkswagen_pq_compute_checksum(dat, 8);
+      dat[0] = volkswagen_pq_compute_checksum();
       dat[1] = ACA_StaACC << 6U;
       dat[2] = ACA_Fahrerhinw << 7U | ACA_AnzDisplay << 6U | ACA_Zeitluecke << 2U;
       dat[3] = ACA_V_Wunsch;
@@ -496,8 +502,8 @@ void TIM3_IRQ_Handler(void) {
       to_send.RIR = (0x56A << 21) | 1U;
       can_send(&to_send, 0, false);;
 
-      ACA_Zaehler++;
-      ACA_Zaehler &= 15;
+      counter++;
+      counter &= COUNTER_CYCLE;
     }
     else {
       // old can packet hasn't sent!
