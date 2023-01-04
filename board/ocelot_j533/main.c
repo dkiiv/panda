@@ -262,6 +262,7 @@ uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 #define GRA_Neu 0x38A
 #define mMotor_2 0x288
 uint8_t MO2_GRA_Soll = 0;         //set GRA target speed from ECU
+uint8_t MO2_Sta_GRA =0;           //GRA/ACC status from ECU
 
 //------------- BUS 2 - GW PTCAN -------------//
 
@@ -352,12 +353,15 @@ void CAN2_RX0_IRQ_Handler(void) {
           msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
           to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
           to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
+        } else {
+          msgPump = 0;            // Turn off msgPump. Car is off.
         }
         break;
       case mMotor_2: // msg containing MO2_GRA_Soll, our GRA set speed from ECU
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
+        MO2_Sta_GRA = (dat[2] >> 6 & 0x3);
         MO2_GRA_Soll = dat[4];
         break;
       default:
@@ -413,7 +417,7 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   //100hz
   if (msgPump) {
-    if (false) {                    //if cruisecontrol ON
+    if (MO2_Sta_GRA == 1 | 2) {     //if cruisecontrol ON
       ACS_Sta_ADR = 1;              //ADR Status (1 active)
       ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
       ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
