@@ -22,9 +22,10 @@ bool pq_long_control = false;  // flag from OP for PQ long
 #define MSG_GAS_SENSOR  0x201   // RX from Pedal
 #define VOLKSWAGEN_GET_INTERCEPTOR(msg) (((GET_BYTE((msg), 0) << 8) + GET_BYTE((msg), 1) + (GET_BYTE((msg), 2) << 8) + GET_BYTE((msg), 3)) / 2) // avg between 2 tracks
 #define MSG_EPB_1       0x5C0   // TX by OP, EPB Spoof (56D EPB)
+#define MSG_AWV_1       0x366   // TX by OP, mAWV for braking
 
 // Transmit of GRA_Neu is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
-const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}, {MSG_ACC_GRA_Anziege, 0, 8}, {MSG_MOB_1, 1, 6}, {MSG_GAS_COMMAND, 0, 6}, {MSG_EPB_1, 1, 8}};
+const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}, {MSG_ACC_GRA_Anziege, 0, 8}, {MSG_MOB_1, 1, 6}, {MSG_GAS_COMMAND, 0, 6}, {MSG_EPB_1, 1, 8}, {MSG_AWV_1, 1, 8}};
 #define VOLKSWAGEN_PQ_TX_MSGS_LEN (sizeof(VOLKSWAGEN_PQ_TX_MSGS) / sizeof(VOLKSWAGEN_PQ_TX_MSGS[0]))
 
 AddrCheckStruct volkswagen_pq_addr_checks[] = {
