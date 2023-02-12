@@ -417,7 +417,7 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   //100hz
   if (msgPump) {
-    if (MO2_Sta_GRA == 1 | 2) {     //if cruisecontrol ON
+    if (MO2_Sta_GRA == (1 | 2)) {     //if cruisecontrol ON
       ACS_Sta_ADR = 1;              //ADR Status (1 active)
       ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
       ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
