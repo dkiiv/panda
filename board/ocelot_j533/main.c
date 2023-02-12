@@ -236,9 +236,9 @@ bool send = 0;
 bool msgPump = 0;
 uint8_t ACS_Zaehler = 0;          //counter
 uint8_t ACA_Zaehler = 0;          //counter
-uint8_t ACS_Sta_ADR = 0;          //ADR Status (1 active)
+uint8_t ACS_Sta_ADR = 2;          //ADR Status (1 active)
 uint8_t ACS_FreigSollB = 0;       //Activation of ACS_Sollbeschl (1 allowed)
-uint8_t ACA_StaACC = 0;           //ADR Status in cluster (3 ACC Active)
+uint8_t ACA_StaACC = 2;           //ADR Status in cluster (3 ACC Active)
 uint8_t ACA_AnzDisplay = 0;       //ADR Display Status (1 Display)
 uint8_t ACS_StSt_Info = 0;        //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
 uint8_t ACS_MomEingriff = 0;      //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
@@ -249,7 +249,7 @@ uint8_t ACS_zul_Regelabw = 0;     //Allowed request deviation (254 ADR not activ
 uint8_t ACS_max_AendGrad = 0;     //Allowed gradient changes (0) | sg is unknown, will change later
 uint8_t ACA_Fahrerhinw = 0;       //ADR Driver Warning, max limit reached (0 Off)
 uint8_t ACA_Zeitluecke = 0;       //Display set time gap (0 not defined / 1-15 Distances)
-uint8_t ACA_V_Wunsch = 0;         //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
+uint8_t ACA_V_Wunsch = 255;         //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
 uint8_t ACA_kmh_mph = 0;          //Display KMh or Mph
 uint8_t ACA_Akustik1 = 0;         //Soft cluster gong (0 off)
 uint8_t ACA_Akustik2 = 0;         //Hard cluster buzzer (0 off)
@@ -261,8 +261,22 @@ uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 
 #define GRA_Neu 0x38A
 #define mMotor_2 0x288
+#define mBremse_3 0x4A0
 uint8_t MO2_GRA_Soll = 0;         //set GRA target speed from ECU
-uint8_t MO2_Sta_GRA =0;           //GRA/ACC status from ECU
+uint8_t MO2_Sta_GRA = 0;          //GRA/ACC status from ECU
+  //Stalk button status
+bool GRA_Hauptschalt = 0;
+bool GRA_Abbrechen = 0;
+bool GRA_Tip_Down = 0;
+bool GRA_Tip_Up = 0;
+  //Wheel speed sensors
+uint16_t BR3_Rad_kmh_VL = 0;
+uint16_t BR3_Rad_kmh_VR = 0;
+uint16_t BR3_Rad_kmh_HL = 0;
+uint16_t BR3_Rad_kmh_HR = 0;
+float kphMphConv = 0.621371;
+uint16_t vEgoKPH = 0;
+uint16_t vEgoMPH = 0;
 
 //------------- BUS 2 - GW PTCAN -------------//
 
@@ -345,10 +359,14 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
         if(dat[0] == volkswagen_pq_compute_checksum(dat, 8)){
+          GRA_Hauptschalt = (dat[1] >> 8U) & 1;
+          GRA_Abbrechen = ((dat[1] >> 7U) << 1U) & 1;
+          GRA_Tip_Down = (dat[3] >> 8U) & 1;
+          GRA_Tip_Up = ((dat[3] >> 7U) << 1U) & 1;
           // add permit_braking and recompute the checksum
-          dat[1] |= 0b01000010;   // Kodierinfo -> ACC
-          dat[2] &= ~0b01000000;  // Drop first bit of Sender to 0
-          dat[2] |=  0b00100000;  //Ensure last bit of Sender is 1
+          dat[1] |=  0b00000001;  // Kodierinfo -> ACC
+          dat[2] &= ~0b00100000;  // Drop first bit of Sender to 0
+          dat[2] |=  0b00010000;  //Ensure last bit of Sender is 1
           dat[0] = volkswagen_pq_compute_checksum(dat, 8); 
           msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
           to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
@@ -363,6 +381,15 @@ void CAN2_RX0_IRQ_Handler(void) {
         }
         MO2_Sta_GRA = (dat[2] >> 6 & 0x3);
         MO2_GRA_Soll = dat[4];
+        break;
+      case mBremse_3: // msg containing wheel speed data
+        for (int i=0; i<8; i++) {
+          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
+        }
+        BR3_Rad_kmh_VL = ((dat[0] >> 1 ) | ((dat[1]) & 0xFFFFFFFF));
+        BR3_Rad_kmh_VR = ((dat[2] >> 1 ) | ((dat[3]) & 0xFFFFFFFF));
+        BR3_Rad_kmh_HL = ((dat[4] >> 1 ) | ((dat[5]) & 0xFFFFFFFF));
+        BR3_Rad_kmh_HR = ((dat[6] >> 1 ) | ((dat[7]) & 0xFFFFFFFF));
         break;
       default:
         // FWD as-is
@@ -417,17 +444,6 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   //100hz
   if (msgPump) {
-    if (MO2_Sta_GRA == (1 | 2)) {     //if cruisecontrol ON
-      ACS_Sta_ADR = 1;              //ADR Status (1 active)
-      ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
-      ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
-      ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
-    } else {
-      ACS_Sta_ADR = 2;              //ADR Status (2 passive)
-      ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
-      ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
-      ACA_AnzDisplay = 0;           //ADR Display Status (0 Display)
-    }
     ACS_StSt_Info = 1;              //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
     ACS_MomEingriff = 0;            //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
     ACS_Typ_ACC = 1;                //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
@@ -443,10 +459,28 @@ void TIM3_IRQ_Handler(void) {
     ACA_PrioDisp = 1;               //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
     ACA_gemZeitl = 0;               //Average follow distance (0 No lead / 1-15 Actual average distance)
     ACA_Codierung = 0;              //Coding (0 ACC) | Need to try flipping this on the fly later on for testing normal CC functionality
-    if (MO2_GRA_Soll > 254) {
-      ACA_V_Wunsch = 255;           //Display set speed (255 not set yet)
-    } else {
-      ACA_V_Wunsch = MO2_GRA_Soll;  //Mirror ECU set speed
+    if (GRA_Tip_Down || GRA_Tip_Up) {
+      ACS_Sta_ADR = 1;              //ADR Status (1 active)
+      ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
+      ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
+      ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
+      if (ACA_V_Wunsch == 255){
+        vEgoKPH = (BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4;
+        vEgoMPH = (vEgoKPH * kphMphConv);
+        ACA_V_Wunsch = ((vEgoMPH + 4) / 5) * 5;
+      } else if (GRA_Tip_Down) {
+        ACA_V_Wunsch = ACA_V_Wunsch - 5;
+      } else if (GRA_Tip_Up) {
+        ACA_V_Wunsch = ACA_V_Wunsch + 5;
+      }
+    } else if (GRA_Hauptschalt || GRA_Abbrechen) {  //This turns off ACC control
+      if (GRA_Abbrechen) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
+        ACA_V_Wunsch = 255;
+      }
+      ACS_Sta_ADR = 2;              //ADR Status (2 passive)
+      ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
+      ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
+      ACA_AnzDisplay = 0;           //ADR Display Status (0 Display)
     }
 
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
