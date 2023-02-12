@@ -260,13 +260,10 @@ uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 //------------- BUS 1 - CAR PTCAN ------------//
 
 #define GRA_Neu 0x38A
-#define mMotor_2 0x288
 #define mBremse_3 0x4A0
-uint8_t MO2_GRA_Soll = 0;         //set GRA target speed from ECU
-uint8_t MO2_Sta_GRA = 0;          //GRA/ACC status from ECU
-  //Stalk button status
-uint8_t GRA_Lever_Pos = 0;
-uint8_t GRA_Tip_Pos = 0;
+  //Stalk button status 
+uint8_t GRA_Lever_Pos = 0;  //GRA_Hauptschalt and GRA_Abbrechen
+uint8_t GRA_Tip_Pos = 0;    //GRA_Tip_Down and GRA_Tip_Up
   //Wheel speed sensors
 uint16_t BR3_Rad_kmh_VL = 0;
 uint16_t BR3_Rad_kmh_VR = 0;
@@ -370,13 +367,6 @@ void CAN2_RX0_IRQ_Handler(void) {
         } else {
           msgPump = 0;            // Turn off msgPump. Car is off.
         }
-        break;
-      case mMotor_2: // msg containing MO2_GRA_Soll, our GRA set speed from ECU
-        for (int i=0; i<8; i++) {
-          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
-        }
-        MO2_Sta_GRA = (dat[2] >> 6 & 0x3);
-        MO2_GRA_Soll = dat[4];
         break;
       case mBremse_3: // msg containing wheel speed data
         for (int i=0; i<8; i++) {
