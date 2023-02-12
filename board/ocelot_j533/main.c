@@ -265,10 +265,8 @@ uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 uint8_t MO2_GRA_Soll = 0;         //set GRA target speed from ECU
 uint8_t MO2_Sta_GRA = 0;          //GRA/ACC status from ECU
   //Stalk button status
-bool GRA_Hauptschalt = 0;
-bool GRA_Abbrechen = 0;
-bool GRA_Tip_Down = 0;
-bool GRA_Tip_Up = 0;
+uint8_t GRA_Lever_Pos = 0;
+uint8_t GRA_Tip_Pos = 0;
   //Wheel speed sensors
 uint16_t BR3_Rad_kmh_VL = 0;
 uint16_t BR3_Rad_kmh_VR = 0;
@@ -359,10 +357,8 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
         if(dat[0] == volkswagen_pq_compute_checksum(dat, 8)){
-          GRA_Hauptschalt = (dat[1] >> 8U) & 1;
-          GRA_Abbrechen = ((dat[1] >> 7U) << 1U) & 1;
-          GRA_Tip_Down = (dat[3] >> 8U) & 1;
-          GRA_Tip_Up = ((dat[3] >> 7U) << 1U) & 1;
+          GRA_Lever_Pos = (dat[1] >> 7U) & 0x2;
+          GRA_Tip_Pos = (dat[3] >> 7U) & 0x2;
           // add permit_braking and recompute the checksum
           dat[1] |=  0b00000001;  // Kodierinfo -> ACC
           dat[2] &= ~0b00100000;  // Drop first bit of Sender to 0
@@ -459,7 +455,7 @@ void TIM3_IRQ_Handler(void) {
     ACA_PrioDisp = 1;               //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
     ACA_gemZeitl = 0;               //Average follow distance (0 No lead / 1-15 Actual average distance)
     ACA_Codierung = 0;              //Coding (0 ACC) | Need to try flipping this on the fly later on for testing normal CC functionality
-    if (GRA_Tip_Down || GRA_Tip_Up) {
+    if (GRA_Tip_Pos >= 1) {
       ACS_Sta_ADR = 1;              //ADR Status (1 active)
       ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
       ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
@@ -468,13 +464,14 @@ void TIM3_IRQ_Handler(void) {
         vEgoKPH = (BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4;
         vEgoMPH = (vEgoKPH * kphMphConv);
         ACA_V_Wunsch = ((vEgoMPH + 4) / 5) * 5;
-      } else if (GRA_Tip_Down) {
+      } else if (GRA_Tip_Pos == 2) {
         ACA_V_Wunsch = ACA_V_Wunsch - 5;
-      } else if (GRA_Tip_Up) {
+      } else if (GRA_Tip_Pos == 1) {
         ACA_V_Wunsch = ACA_V_Wunsch + 5;
       }
-    } else if (GRA_Hauptschalt || GRA_Abbrechen) {  //This turns off ACC control
-      if (GRA_Abbrechen) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
+    }
+    if (GRA_Lever_Pos >= 1) {  //This turns off ACC control
+      if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
         ACA_V_Wunsch = 255;
       }
       ACS_Sta_ADR = 2;              //ADR Status (2 passive)
