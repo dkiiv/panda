@@ -372,10 +372,10 @@ void CAN2_RX0_IRQ_Handler(void) {
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
-        BR3_Rad_kmh_VL = ((dat[0] >> 1 ) | ((dat[1]) & 0xFFFFFFFF));
-        BR3_Rad_kmh_VR = ((dat[2] >> 1 ) | ((dat[3]) & 0xFFFFFFFF));
-        BR3_Rad_kmh_HL = ((dat[4] >> 1 ) | ((dat[5]) & 0xFFFFFFFF));
-        BR3_Rad_kmh_HR = ((dat[6] >> 1 ) | ((dat[7]) & 0xFFFFFFFF));
+        BR3_Rad_kmh_VL = ((dat[0] >> 1) | dat[1]);
+        BR3_Rad_kmh_VR = ((dat[2] >> 1) | dat[3]);
+        BR3_Rad_kmh_HL = ((dat[4] >> 1) | dat[5]);
+        BR3_Rad_kmh_HR = ((dat[6] >> 1) | dat[7]);
         break;
       default:
         // FWD as-is
@@ -451,7 +451,7 @@ void TIM3_IRQ_Handler(void) {
       ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
       ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
       if (ACA_V_Wunsch == 255){
-        vEgoKPH = (BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4;
+        vEgoKPH = ((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4) & 0xFFFFFFFFFFFFFFF;
         vEgoMPH = (vEgoKPH * kphMphConv);
         ACA_V_Wunsch = ((int)((vEgoMPH + 2) / 5)) * 5;
       } else if (GRA_Tip_Pos == 2) {
