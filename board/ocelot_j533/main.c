@@ -453,7 +453,7 @@ void TIM3_IRQ_Handler(void) {
       if (ACA_V_Wunsch == 255){
         vEgoKPH = (BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4;
         vEgoMPH = (vEgoKPH * kphMphConv);
-        ACA_V_Wunsch = ((vEgoMPH + 4) / 5) * 5;
+        ACA_V_Wunsch = ((int)((vEgoMPH + 2) / 5)) * 5;
       } else if (GRA_Tip_Pos == 2) {
         ACA_V_Wunsch = ACA_V_Wunsch - 5;
       } else if (GRA_Tip_Pos == 1) {
