@@ -260,7 +260,10 @@ uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 //------------- BUS 1 - CAR PTCAN ------------//
 
 #define GRA_Neu 0x38A
+#define mMotor_2 0x288
 #define mBremse_3 0x4A0
+  //Brake Pressed
+bool MO2_BTS = 0;
   //Stalk button status 
 uint8_t GRA_Lever_Pos = 0;  //GRA_Hauptschalt and GRA_Abbrechen
 uint8_t GRA_Tip_Pos = 0;    //GRA_Tip_Down and GRA_Tip_Up
@@ -329,6 +332,7 @@ void CAN1_SCE_IRQ_Handler(void) {
 }
 
 void CAN2_RX0_IRQ_Handler(void) {
+  // to the gateway (PT)
   while ((CAN2->RF0R & CAN_RF0R_FMP0) != 0) {
 
     CAN_FIFOMailBox_TypeDef to_fwd;
@@ -354,8 +358,8 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
         if(dat[0] == volkswagen_pq_compute_checksum(dat, 8)){
-          GRA_Lever_Pos = (dat[1] >> 7U) & 0x2;
-          GRA_Tip_Pos = (dat[3] >> 7U) & 0x2;
+          GRA_Lever_Pos = (dat[1] >> 6U) & 0x2;
+          GRA_Tip_Pos = (dat[3] >> 6U) & 0x2;
           // add permit_braking and recompute the checksum
           dat[1] |=  0b00000001;  // Kodierinfo -> ACC
           dat[2] &= ~0b00100000;  // Drop first bit of Sender to 0
@@ -367,6 +371,12 @@ void CAN2_RX0_IRQ_Handler(void) {
         } else {
           msgPump = 0;            // Turn off msgPump. Car is off.
         }
+        break;
+      case mMotor_2:  // msg containing brake pressed data
+        for (int i=0; i<8; i++) {
+          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
+        }
+        MO2_BTS = (dat[2] && 0b01000000) >> 6U;
         break;
       case mBremse_3: // msg containing wheel speed data
         for (int i=0; i<8; i++) {
@@ -395,7 +405,7 @@ void CAN2_SCE_IRQ_Handler(void) {
 }
 
 void CAN3_RX0_IRQ_Handler(void) {
-  // From the DSU
+  // From the gateway (PT)
   while ((CAN3->RF0R & CAN_RF0R_FMP0) != 0) {
 
     CAN_FIFOMailBox_TypeDef to_fwd;
@@ -428,6 +438,7 @@ void CAN3_SCE_IRQ_Handler(void) {
 }
 
 void TIM3_IRQ_Handler(void) {
+  // inject messages onto ext can into gateway/OP relay
   //100hz
   if (msgPump) {
     ACS_StSt_Info = 1;              //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
@@ -460,7 +471,7 @@ void TIM3_IRQ_Handler(void) {
         ACA_V_Wunsch = ACA_V_Wunsch + 5;
       }
     }
-    if (GRA_Lever_Pos >= 1) {  //This turns off ACC control
+    if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
       if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
         ACA_V_Wunsch = 255;
       }
