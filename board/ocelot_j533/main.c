@@ -262,6 +262,8 @@ uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 #define GRA_Neu 0x38A
 #define mMotor_2 0x288
 #define mBremse_3 0x4A0
+  //CC stalk behavior counter
+uint8_t Stalk_Counter = 0;
   //Brake Pressed
 bool MO2_BTS = 0;
   //Stalk button status 
@@ -456,25 +458,31 @@ void TIM3_IRQ_Handler(void) {
     ACA_PrioDisp = 1;               //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
     ACA_gemZeitl = 0;               //Average follow distance (0 No lead / 1-15 Actual average distance)
     ACA_Codierung = 0;              //Coding (0 ACC) | Need to try flipping this on the fly later on for testing normal CC functionality
-    if (GRA_Tip_Pos >= 1) {
+    if (GRA_Tip_Pos >= 1 || Stalk_Counter >= 3) {
+      Stalk_Counter++;
+      Stalk_Counter &= 250;
       ACS_Sta_ADR = 1;              //ADR Status (1 active)
       ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
       ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
       ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
-      if (ACA_V_Wunsch == 255){
+      if (ACA_V_Wunsch == 255 || Stalk_Counter <= 1){
         vEgoKPH = ((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4) & 0xFFFFFFFFFFFFFFF;
         vEgoMPH = (vEgoKPH * kphMphConv);
         ACA_V_Wunsch = ((int)((vEgoMPH + 2) / 5)) * 5;
-      } else if (GRA_Tip_Pos == 2) {
+      } else if (GRA_Tip_Pos == 2 && Stalk_Counter <= 250) {
         ACA_V_Wunsch = ACA_V_Wunsch - 5;
-      } else if (GRA_Tip_Pos == 1) {
+        Stalk_Counter = 2;
+      } else if (GRA_Tip_Pos == 1 && Stalk_Counter <= 250) {
         ACA_V_Wunsch = ACA_V_Wunsch + 5;
+        Stalk_Counter = 2;
       }
     }
     if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
       if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
         ACA_V_Wunsch = 255;
+        Stalk_Counter = 0;
       }
+      Stalk_Counter = 2;
       ACS_Sta_ADR = 2;              //ADR Status (2 passive)
       ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
       ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
