@@ -364,7 +364,7 @@ void CAN2_RX0_IRQ_Handler(void) {
           GRA_Tip_Pos = (dat[3] >> 6U) & 0x2;
           // add permit_braking and recompute the checksum
           dat[1] |=  0b00000001;  // Kodierinfo -> ACC
-          dat[2] &= ~0b00100000;  // Drop first bit of Sender to 0
+          dat[2] ^= ~0b00100000;  // Drop first bit of Sender to 0
           dat[2] |=  0b00010000;  //Ensure last bit of Sender is 1
           dat[0] = volkswagen_pq_compute_checksum(dat, 8); 
           msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
