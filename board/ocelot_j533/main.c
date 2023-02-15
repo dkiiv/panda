@@ -482,7 +482,7 @@ void TIM3_IRQ_Handler(void) {
         ACA_V_Wunsch = 255;
         Stalk_Counter = 0;
       }
-      Stalk_Counter = 2;
+      Stalk_Counter = 1;
       ACS_Sta_ADR = 2;              //ADR Status (2 passive)
       ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
       ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
