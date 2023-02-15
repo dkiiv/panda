@@ -233,7 +233,7 @@ bool send = 0;
 
 //------------- BUS 0 - EXT CAN --------------//
 
-bool msgPump = 0;
+uint8_t msgPump = 0;
 uint8_t ACS_Zaehler = 0;          //counter
 uint8_t ACA_Zaehler = 0;          //counter
 uint8_t ACS_Sta_ADR = 2;          //ADR Status (1 active)
@@ -366,12 +366,10 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[1] |=  0b00000001;  // Kodierinfo -> ACC
           dat[2] ^= ~0b00100000;  // Drop first bit of Sender to 0
           dat[2] |=  0b00010000;  //Ensure last bit of Sender is 1
-          dat[0] = volkswagen_pq_compute_checksum(dat, 8); 
-          msgPump = 1;            // Turn on msgPump for ACC Msg on extcan
+          dat[0] = volkswagen_pq_compute_checksum(dat, 8);
+          msgPump = 2;            // Turn on msgPump for ACC Msg on extcan
           to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
           to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
-        } else {
-          msgPump = 0;            // Turn off msgPump. Car is off.
         }
         break;
       case mMotor_2:  // msg containing brake pressed data
@@ -442,7 +440,8 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   // inject messages onto ext can into gateway/OP relay
   //100hz
-  if (msgPump) {
+  if (msgPump >= 1) {
+    msgPump--;                      //Drain msgPump value, if GRA_Neu case isnt true this function will self disable after 2 cycles
     ACS_StSt_Info = 1;              //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
     ACS_MomEingriff = 0;            //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
     ACS_Typ_ACC = 1;                //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
