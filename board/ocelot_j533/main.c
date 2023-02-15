@@ -476,7 +476,7 @@ void TIM3_IRQ_Handler(void) {
         ACA_V_Wunsch = ACA_V_Wunsch + 5;
         Stalk_Counter = 2;
       }
-      Stalk_Counter &= 250;
+      Stalk_Counter &= 250;         //Constrain counter to 2.5 seconds
     }
     if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
       if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
