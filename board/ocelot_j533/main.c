@@ -236,24 +236,24 @@ bool send = 0;
 uint8_t msgPump = 0;
 uint8_t ACS_Zaehler = 0;          //counter
 uint8_t ACA_Zaehler = 0;          //counter
-uint8_t ACS_Sta_ADR = 2;          //ADR Status (1 active)
+uint8_t ACS_Sta_ADR = 2;          //ADR Status (2 inactive)
 uint8_t ACS_FreigSollB = 0;       //Activation of ACS_Sollbeschl (1 allowed)
-uint8_t ACA_StaACC = 2;           //ADR Status in cluster (3 ACC Active)
-uint8_t ACA_AnzDisplay = 0;       //ADR Display Status (1 Display)
-uint8_t ACS_StSt_Info = 0;        //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
+uint8_t ACA_StaACC = 2;           //ADR Status in cluster (2 ACC inactive)
+uint8_t ACA_AnzDisplay = 0;       //ADR Display Status (0 no-Display)
+uint8_t ACS_StSt_Info = 1;        //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
 uint8_t ACS_MomEingriff = 0;      //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
-uint8_t ACS_Typ_ACC = 0;          //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
-uint16_t ACS_Sollbeschl = 0;      //Acceleration Request (2046(10.23) ADR Inactive)
+uint8_t ACS_Typ_ACC = 1;          //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
+uint16_t ACS_Sollbeschl = 2046;   //Acceleration Request (2046(10.23) ADR Inactive)
 uint8_t ACS_Anhaltewunsch = 0;    //Stopping request (0 no stop request)
-uint8_t ACS_zul_Regelabw = 0;     //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
+uint8_t ACS_zul_Regelabw = 254;   //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
 uint8_t ACS_max_AendGrad = 0;     //Allowed gradient changes (0) | sg is unknown, will change later
 uint8_t ACA_Fahrerhinw = 0;       //ADR Driver Warning, max limit reached (0 Off)
-uint8_t ACA_Zeitluecke = 0;       //Display set time gap (0 not defined / 1-15 Distances)
-uint8_t ACA_V_Wunsch = 255;         //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
-uint8_t ACA_kmh_mph = 0;          //Display KMh or Mph
+uint8_t ACA_Zeitluecke = 7;       //Display set time gap (0 not defined / 1-15 Distances)
+uint8_t ACA_V_Wunsch = 255;       //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
+uint8_t ACA_kmh_mph = 1;          //Display KMh or Mph
 uint8_t ACA_Akustik1 = 0;         //Soft cluster gong (0 off)
 uint8_t ACA_Akustik2 = 0;         //Hard cluster buzzer (0 off)
-uint8_t ACA_PrioDisp = 0;         //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
+uint8_t ACA_PrioDisp = 1;         //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
 uint8_t ACA_gemZeitl = 0;         //Average follow distance (0 No lead / 1-15 Actual average distance)
 uint8_t ACA_Codierung = 0;        //Coding (0 acc)
 
@@ -442,21 +442,6 @@ void TIM3_IRQ_Handler(void) {
   //100hz
   if (msgPump >= 1) {
     msgPump--;                      //Drain msgPump value, if GRA_Neu case isnt true this function will self disable after 2 cycles
-    ACS_StSt_Info = 1;              //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
-    ACS_MomEingriff = 0;            //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
-    ACS_Typ_ACC = 1;                //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
-    ACS_Sollbeschl = 2046;          //Acceleration Request (2046(10.23) ADR Inactive)
-    ACS_Anhaltewunsch = 0;          //Stopping request (0 no stop request)
-    ACS_zul_Regelabw = 254;         //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
-    ACS_max_AendGrad = 0;           //Allowed gradient changes (0) | sg is unknown, will change later
-    ACA_Fahrerhinw = 0;             //ADR Driver Warning, max limit reached (0 Off)
-    ACA_Zeitluecke = 1;             //Display set time gap (0 not defined / 1-15 Distances)
-    ACA_kmh_mph = 1;                //Display KMh or Mph (1 mph)
-    ACA_Akustik1 = 0;               //Soft cluster gong (0 off)
-    ACA_Akustik2 = 0;               //Hard cluster buzzer (0 off)
-    ACA_PrioDisp = 1;               //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
-    ACA_gemZeitl = 0;               //Average follow distance (0 No lead / 1-15 Actual average distance)
-    ACA_Codierung = 0;              //Coding (0 ACC) | Need to try flipping this on the fly later on for testing normal CC functionality
     if (GRA_Tip_Pos >= 1 || Stalk_Counter >= 2) {
       Stalk_Counter++;
       ACS_Sta_ADR = 1;              //ADR Status (1 active)
