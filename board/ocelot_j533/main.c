@@ -242,7 +242,7 @@ uint8_t ACA_StaACC = 2;           //ADR Status in cluster (2 ACC inactive)
 uint8_t ACA_AnzDisplay = 0;       //ADR Display Status (0 no-Display)
 uint8_t ACS_StSt_Info = 1;        //StartStopRequest (1 Engine start not needed) | this may be subject to change in vehicles which utilize start stop
 uint8_t ACS_MomEingriff = 0;      //Torque intervention (Prevent whiplash?) (0 Allow whiplash)
-uint8_t ACS_Typ_ACC = 1;          //ADR Type (1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
+uint8_t ACS_Typ_ACC = 0;          //ADR Type (0 normal ACC | 1 ACC Follow2Stop) | this may be subject to change as not all vehicles will support FtS ACC
 uint16_t ACS_Sollbeschl = 2046;   //Acceleration Request (2046(10.23) ADR Inactive)
 uint8_t ACS_Anhaltewunsch = 0;    //Stopping request (0 no stop request)
 uint8_t ACS_zul_Regelabw = 254;   //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
@@ -450,7 +450,7 @@ void TIM3_IRQ_Handler(void) {
       ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
       if (ACA_V_Wunsch == 255 || Stalk_Counter == 1) {  //Stalk_Counter is equal to 1 if this is the first time running through after no driver input for 2.5 seconds
         vEgoKPH = ((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4) & 0xFFFFFFFFFFFFFFF;
-        vEgoMPH = (vEgoKPH * kphMphConv);
+        vEgoMPH = (vEgoKPH * kphMphConv) * 0.01;
         ACA_V_Wunsch = ((int)((vEgoMPH + 2) / 5)) * 5;
         Stalk_Counter = 2;
       } else if (GRA_Tip_Pos == 2) {
