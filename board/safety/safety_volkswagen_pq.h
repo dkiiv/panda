@@ -1,8 +1,8 @@
-const int VOLKSWAGEN_PQ_MAX_STEER = 420;                // 4.2 Nm (EPS side max of 4.2 Nm with fault if violated)
-const int VOLKSWAGEN_PQ_MAX_RT_DELTA = 188;             // 10 max rate up * 50Hz send rate * 250000 RT interval / 1000000 = 125 ; 125 * 1.5 for safety pad = 187.5
+const int VOLKSWAGEN_PQ_MAX_STEER = 300;                // 4.2 Nm (EPS side max of 3.0 Nm with fault if violated)
+const int VOLKSWAGEN_PQ_MAX_RT_DELTA = 375;             // 20 max rate up * 50Hz send rate * 250000 RT interval / 1000000 = 250 ; 250 * 1.5 for safety pad = 375
 const uint32_t VOLKSWAGEN_PQ_RT_INTERVAL = 250000;      // 250ms between real time checks
-const int VOLKSWAGEN_PQ_MAX_RATE_UP = 10;               // 5.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
-const int VOLKSWAGEN_PQ_MAX_RATE_DOWN = 10;             // 5.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
+const int VOLKSWAGEN_PQ_MAX_RATE_UP = 20;               // 5.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
+const int VOLKSWAGEN_PQ_MAX_RATE_DOWN = 20;             // 5.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_ALLOWANCE = 80;
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_FACTOR = 3;
 const int VOLKSWAGEN_GAS_INTERCEPTOR_THRSLD = 475;
