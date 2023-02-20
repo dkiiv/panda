@@ -245,40 +245,26 @@ uint16_t ACS_Sollbeschl = 2046;   //Acceleration Request (2046(10.23) ADR Inacti
 uint8_t  ACS_Anhaltewunsch = 0;    //Stopping request (0 no stop request)
 uint8_t  ACS_zul_Regelabw = 254;   //Allowed request deviation (254 ADR not active) | Ties into ACS_Sollbeschl problem
 uint8_t  ACS_max_AendGrad = 0;     //Allowed gradient changes (0) | sg is unknown, will change later
+
 // mACC_GRA_Anziege
-uint8_t  ACA_Zaehler = 0;          //counter
 uint8_t  ACA_StaACC = 2;           //ADR Status in cluster (2 ACC inactive)
 uint8_t  ACA_AnzDisplay = 0;       //ADR Display Status (0 no-Display)
-uint8_t  ACA_Fahrerhinw = 0;       //ADR Driver Warning, max limit reached (0 Off)
-uint8_t  ACA_V_Wunsch = 255;       //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
 uint8_t  ACA_Zeitluecke = 7;       //Display set time gap (0 not defined / 1-15 Distances)
-uint8_t  ACA_kmh_mph = 1;          //Display KMh or Mph
-uint8_t  ACA_Akustik1 = 0;         //Soft cluster gong (0 off)
-uint8_t  ACA_Akustik2 = 0;         //Hard cluster buzzer (0 off)
+uint8_t  ACA_Aend_Zeitluecke = 1;  //Display started
 uint8_t  ACA_PrioDisp = 1;         //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
 uint8_t  ACA_gemZeitl = 0;         //Average follow distance (0 No lead / 1-15 Actual average distance)
-uint8_t  ACA_Codierung = 0;        //Coding (0 acc)
 
 //------------- BUS 1 - CAR PTCAN ------------//
 
 #define GRA_Neu 0x38A
 #define mMotor_2 0x288
 #define mBremse_3 0x4A0
-  //CC stalk behavior counter
-uint8_t Stalk_Counter = 0;
+#define mACC_GRA_Anziege 0x56a
   //Brake Pressed
 bool MO2_BTS = 0;
   //Stalk button status 
 uint8_t GRA_Lever_Pos = 0;  //GRA_Hauptschalt and GRA_Abbrechen
 uint8_t GRA_Tip_Pos = 0;    //GRA_Tip_Down and GRA_Tip_Up
-  //Wheel speed sensors
-uint16_t BR3_Rad_kmh_VL = 0;
-uint16_t BR3_Rad_kmh_VR = 0;
-uint16_t BR3_Rad_kmh_HL = 0;
-uint16_t BR3_Rad_kmh_HR = 0;
-float kphMphConv = 0.621371;
-uint16_t vEgoKPH = 0;
-uint16_t vEgoMPH = 0;
 
 //------------- BUS 2 - GW PTCAN -------------//
 
@@ -304,7 +290,7 @@ void CAN1_RX0_IRQ_Handler(void) {
     #endif
 
     // CAN data buffer
-    //uint8_t dat[8];
+    uint8_t dat[8];
 
     switch (address) {
       case CAN_UPDATE:
@@ -319,6 +305,39 @@ void CAN1_RX0_IRQ_Handler(void) {
             puts("Failed entering Softloader or Bootloader\n");
           }
         }
+        break;
+      case mACC_GRA_Anziege:
+        if (GRA_Tip_Pos >= 1) {
+          ACS_Sta_ADR = 1;              //ADR Status (1 active)
+          ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
+          ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
+          ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
+        }
+        if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
+          if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
+            ACA_StaACC = 0;             //ADR Status in cluster (0 main switch off)
+          }
+          ACS_Sta_ADR = 2;              //ADR Status (2 passive)
+          ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
+          ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
+          ACA_AnzDisplay = 6;           //ADR Display Status (6 ACC reversible off)
+        }
+        for (int i=0; i<8; i++) {
+          dat[i] = GET_BYTE(&CAN1->sFIFOMailBox[0], i);
+        }
+        if(dat[0] == volkswagen_pq_compute_checksum(dat, 8)){
+          dat[0] = volkswagen_pq_compute_checksum(dat, 8);
+          dat[1] |= ACA_StaACC << 5U;
+          dat[2] |= ACA_AnzDisplay << 6U | ACA_Zeitluecke << 2U;
+          dat[4] |= ACA_PrioDisp << 3U;
+          dat[5] |= ACA_gemZeitl << 4U;
+          dat[7] |= ACA_Aend_Zeitluecke << 5U;
+          to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
+          to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
+        }        
+        break;
+      default:
+        // FWD as-is
         break;
     }
     // no forward, can 1 is injection
@@ -369,7 +388,6 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[2] ^= ~0b00100000;  // Drop first bit of Sender to 0
           dat[2] |=  0b00010000;  //Ensure last bit of Sender is 1
           dat[0] = volkswagen_pq_compute_checksum(dat, 8);
-          msgPump = 2;            // Turn on msgPump for ACC Msg on extcan
           to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
           to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
         }
@@ -379,15 +397,6 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
         MO2_BTS = (dat[2] && 0b01000000) >> 6U;
-        break;
-      case mBremse_3: // msg containing wheel speed data
-        for (int i=0; i<8; i++) {
-          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
-        }
-        BR3_Rad_kmh_VL = ((dat[0] >> 1) | dat[1]);
-        BR3_Rad_kmh_VR = ((dat[2] >> 1) | dat[3]);
-        BR3_Rad_kmh_HL = ((dat[4] >> 1) | dat[5]);
-        BR3_Rad_kmh_HR = ((dat[6] >> 1) | dat[7]);
         break;
       default:
         // FWD as-is
@@ -442,40 +451,6 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   // inject messages onto ext can into gateway/OP relay
   //100hz
-  if (msgPump >= 1) {
-    msgPump--;                      //Drain msgPump value, if GRA_Neu case isnt true this function will self disable after 2 cycles
-    if (GRA_Tip_Pos >= 1 || Stalk_Counter >= 2) {
-      Stalk_Counter++;
-      ACS_Sta_ADR = 1;              //ADR Status (1 active)
-      ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
-      ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
-      ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
-      if (ACA_V_Wunsch == 255 || Stalk_Counter == 1) {  //Stalk_Counter is equal to 1 if this is the first time running through after no driver input for 2.5 seconds
-        vEgoKPH = ((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4) & 0xFFFFFFFFFFFFFFF;
-        vEgoMPH = (vEgoKPH * kphMphConv) * 0.01;
-        ACA_V_Wunsch = ((int)((vEgoMPH + 2) / 5)) * 5;
-        Stalk_Counter = 2;
-      } else if (GRA_Tip_Pos == 2) {
-        ACA_V_Wunsch = ACA_V_Wunsch - 5;
-        Stalk_Counter = 2;
-      } else if (GRA_Tip_Pos == 1) {
-        ACA_V_Wunsch = ACA_V_Wunsch + 5;
-        Stalk_Counter = 2;
-      }
-      Stalk_Counter &= 250;         //Constrain counter to 2.5 seconds
-    }
-    if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
-      if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
-        ACA_V_Wunsch = 255;
-        Stalk_Counter = 0;
-      }
-      Stalk_Counter = 1;
-      ACS_Sta_ADR = 2;              //ADR Status (2 passive)
-      ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
-      ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
-      ACA_AnzDisplay = 0;           //ADR Display Status (0 Display)
-    }
-
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
 
@@ -483,7 +458,7 @@ void TIM3_IRQ_Handler(void) {
       dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
       dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
       dat[3] = (ACS_Sollbeschl >> 3U) & 0xFF;
-      dat[4] = (ACS_Sollbeschl & 7U) << 5U | ACS_Anhaltewunsch << 1U;
+      dat[4] = (ACS_Sollbeschl << 5U) << 5U | ACS_Anhaltewunsch << 1U;
       dat[5] = ACS_zul_Regelabw;
       dat[6] = ACS_max_AendGrad;
       dat[7] = 0;
@@ -504,36 +479,6 @@ void TIM3_IRQ_Handler(void) {
         puts("CAN1 MISS1\n");
       #endif
     }
-    if ((CAN1->TSR & CAN_TSR_TME1) == CAN_TSR_TME1) {
-      uint8_t dat[8]; //SEND mACC_GRA_Anziege
-
-      dat[0] = volkswagen_pq_compute_checksum(dat, 8);
-      dat[1] = ACA_StaACC << 6U;
-      dat[2] = ACA_Fahrerhinw << 7U | ACA_AnzDisplay << 6U | ACA_Zeitluecke << 2U;
-      dat[3] = ACA_V_Wunsch;
-      dat[4] = ACA_kmh_mph << 7U | ACA_Akustik1 << 6U | ACA_Akustik2 << 5U | ACA_PrioDisp << 3U;
-      dat[5] = ACA_gemZeitl << 4U;
-      dat[6] = 0;
-      dat[7] = ACA_Codierung << 7U | ACA_Zaehler;
-
-      CAN_FIFOMailBox_TypeDef to_send;
-      to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-      to_send.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
-      to_send.RDTR = 8;
-      to_send.RIR = (0x56A << 21) | 1U;
-      can_send(&to_send, 0, false);;
-
-      ACA_Zaehler++;
-      ACA_Zaehler &= 15;
-    }
-    else {
-      // old can packet hasn't sent!
-      #ifdef DEBUG_CAN
-        puts("CAN1 MISS1\n");
-      #endif
-    }
-  }
-
 }
 
 // ***************************** main code *****************************
