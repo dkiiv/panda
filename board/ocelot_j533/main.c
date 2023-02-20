@@ -307,6 +307,7 @@ void CAN1_RX0_IRQ_Handler(void) {
         }
         break;
       case mACC_GRA_Anziege:
+        msgPump = 200;                  //sets msgPump buffer to 2 seconds. radar message will shutoff after 2 seconds of no ign
         if (GRA_Tip_Pos >= 1) {
           ACS_Sta_ADR = 1;              //ADR Status (1 active)
           ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
@@ -451,6 +452,8 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   // inject messages onto ext can into gateway/OP relay
   //100hz
+  if (msgPump >= 1) {
+    msgPump--;            // bleeds off msgPump after 2 seconds
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
 
@@ -479,6 +482,7 @@ void TIM3_IRQ_Handler(void) {
         puts("CAN1 MISS1\n");
       #endif
     }
+  }
 }
 
 // ***************************** main code *****************************
