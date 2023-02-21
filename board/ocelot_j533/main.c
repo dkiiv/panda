@@ -350,6 +350,7 @@ void CAN1_RX0_IRQ_Handler(void) {
           dat[0] = volkswagen_pq_compute_checksum(dat, 8);
           dat[1] |= ACA_StaACC << 5U;
           dat[2] |= ACA_AnzDisplay << 6U | ACA_Zeitluecke << 2U;
+          dat[3] = ACA_V_Wunsch;
           dat[4] |= ACA_PrioDisp << 3U;
           dat[5] |= ACA_gemZeitl << 4U;
           dat[7] |= ACA_Aend_Zeitluecke << 5U;
@@ -490,7 +491,7 @@ void TIM3_IRQ_Handler(void) {
       dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
       dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
       dat[3] = (ACS_Sollbeschl >> 3U) & 0xFF;
-      dat[4] = (ACS_Sollbeschl << 8U) << 5U | ACS_Anhaltewunsch << 1U;
+      dat[4] = ((ACS_Sollbeschl << 8U) & 7U) << 5U | ACS_Anhaltewunsch << 1U;
       dat[5] = ACS_zul_Regelabw;
       dat[6] = ACS_max_AendGrad;
       dat[7] = 0;
