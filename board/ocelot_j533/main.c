@@ -247,7 +247,7 @@ uint8_t  ACS_zul_Regelabw = 254;   //Allowed request deviation (254 ADR not acti
 uint8_t  ACS_max_AendGrad = 0;     //Allowed gradient changes (0) | sg is unknown, will change later
 
 // mACC_GRA_Anziege
-uint8_t  ACA_StaACC = 2;           //ADR Status in cluster (2 ACC inactive)
+uint8_t  ACA_StaACC = 1;           //ADR Status in cluster (1 ACC ok but disabled)
 uint8_t  ACA_AnzDisplay = 0;       //ADR Display Status (0 no-Display)
 uint8_t  ACA_Zeitluecke = 7;       //Display set time gap (0 not defined / 1-15 Distances)
 uint8_t ACA_V_Wunsch = 255; //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
@@ -336,7 +336,7 @@ void CAN1_RX0_IRQ_Handler(void) {
         }
         if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
           if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
-            ACA_StaACC = 0;             //ADR Status in cluster (0 main switch off)
+            ACA_StaACC = 1;             //ADR Status in cluster (1 ACC ok but disabled)
           }
           ACS_Sta_ADR = 2;              //ADR Status (2 passive)
           ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
