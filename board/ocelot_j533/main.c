@@ -259,6 +259,7 @@ uint8_t  ACA_gemZeitl = 0;         //Average follow distance (0 No lead / 1-15 A
 
 #define GRA_Neu 0x38A
 #define mMotor_2 0x288
+#define mMotor_3 0x380
 #define mBremse_3 0x4A0
 #define mACC_GRA_Anziege 0x56a
   //Brake Pressed
@@ -274,6 +275,8 @@ uint16_t BR3_Rad_kmh_HR = 0;
 float kphMphConv = 0.621371;
 uint16_t vEgoKPH = 0;
 uint16_t vEgoMPH = 0;
+  //Pedal position
+uint8_t MO3_Pedalwert = 0;
 
 //------------- BUS 2 - GW PTCAN -------------//
 
@@ -342,6 +345,9 @@ void CAN1_RX0_IRQ_Handler(void) {
           ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
           ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
           ACA_AnzDisplay = 6;           //ADR Display Status (6 ACC reversible off)
+        }
+        if (MO3_Pedalwert > 0 && ACA_StaACC == 3) {   // This sets ACA_StaACC to 4, ACC in background as driver is overriding it
+          ACA_StaACC = 4;
         }
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN1->sFIFOMailBox[0], i);
@@ -419,6 +425,12 @@ void CAN2_RX0_IRQ_Handler(void) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
         MO2_BTS = (dat[2] && 0b01000000) >> 6U;
+        break;
+      case mMotor_3:  // msg containing pedal value
+        for (int i=0; i<8; i++) {
+          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
+        }
+        MO3_Pedalwert = (int)((dat[2] * 0.04) / 100);
         break;
       case mBremse_3: // msg containing wheel speed data
         for (int i=0; i<8; i++) {
