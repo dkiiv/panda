@@ -234,6 +234,7 @@ bool send = 0;
 //------------- BUS 0 - EXT CAN --------------//
 
 uint8_t  msgPump = 0;
+uint8_t engagementCounter = 0;
 // mACC_System
 uint8_t  ACS_Zaehler = 0;          //counter
 uint8_t  ACS_Sta_ADR = 2;          //ADR Status (2 inactive)
@@ -332,10 +333,10 @@ void CAN1_RX0_IRQ_Handler(void) {
           } else {
             ACA_V_Wunsch = ACA_V_Wunsch + 5;
           }
+          engagementCounter++;
           ACS_Sta_ADR = 1;              //ADR Status (1 active)
           ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
           ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
-          ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
         }
         if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
           if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
@@ -344,7 +345,12 @@ void CAN1_RX0_IRQ_Handler(void) {
           ACS_Sta_ADR = 2;              //ADR Status (2 passive)
           ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
           ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
-          ACA_AnzDisplay = 6;           //ADR Display Status (6 ACC reversible off)
+        }
+        if (engagementCounter >= 1) {
+          ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
+          engagementCounter &= 100;     //Constrain engagement counter to 1 second
+        } else {
+          ACA_AnzDisplay = 0;           //ADR Display Status (0 no display)
         }
         if (MO3_Pedalwert > 0 && ACA_StaACC == 3) {   // This sets ACA_StaACC to 4, ACC in background as driver is overriding it
           ACA_StaACC = 4;
