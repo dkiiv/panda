@@ -410,22 +410,6 @@ void CAN2_RX0_IRQ_Handler(void) {
     uint8_t dat[8];
 
     switch(address) {
-      case GRA_Neu: // ccstalk msg coming into oj533
-        for (int i=0; i<8; i++) {
-          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
-        }
-        if(dat[0] == volkswagen_pq_compute_checksum(dat, 8)){
-          GRA_Lever_Pos = (dat[1] >> 6U) & 0x2;
-          GRA_Tip_Pos = (dat[3] >> 6U) & 0x2;
-          // add permit_braking and recompute the checksum
-          dat[1] |=  0b00000001;  // Kodierinfo -> ACC
-          dat[2] ^= ~0b00100000;  // Drop first bit of Sender to 0
-          dat[2] |=  0b00010000;  //Ensure last bit of Sender is 1
-          dat[0] = volkswagen_pq_compute_checksum(dat, 8);
-          to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-          to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
-        }
-        break;
       case mMotor_2:  // msg containing brake pressed data
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
@@ -480,10 +464,32 @@ void CAN3_RX0_IRQ_Handler(void) {
     puts("CAN3 RX: ");
     puth(address);
     puts("\n");
-    #else
-    UNUSED(address);
     #endif
 
+    // CAN data buffer
+    uint8_t dat[8];
+
+    switch(address) {
+      case GRA_Neu: // ccstalk msg coming into oj533
+        for (int i=0; i<8; i++) {
+          dat[i] = GET_BYTE(&CAN3->sFIFOMailBox[0], i);
+        }
+        if(dat[0] == volkswagen_pq_compute_checksum(dat, 8)){
+          GRA_Lever_Pos = (dat[1] >> 6U) & 0x2;
+          GRA_Tip_Pos = (dat[3] >> 6U) & 0x2;
+          // add permit_braking and recompute the checksum
+          dat[1] |=  0b00000001;  // Kodierinfo -> ACC
+          dat[2] ^= ~0b00100000;  // Drop first bit of Sender to 0
+          dat[2] |=  0b00010000;  //Ensure last bit of Sender is 1
+          dat[0] = volkswagen_pq_compute_checksum(dat, 8);
+          to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
+          to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
+        }
+        break;
+      default:
+        // FWD as-is
+        break;
+    }
     // send to CAN2 with love from CAN3
     can_send(&to_fwd, 1, false);
     // next
