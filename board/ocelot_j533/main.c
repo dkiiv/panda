@@ -258,16 +258,12 @@ uint8_t  ACA_gemZeitl = 0;         //Average follow distance (0 No lead / 1-15 A
 
 //------------- BUS 1 - CAR PTCAN ------------//
 
-#define GRA_Neu 0x38A
 #define mMotor_2 0x288
 #define mMotor_3 0x380
 #define mBremse_3 0x4A0
 #define mACC_GRA_Anziege 0x56a
   //Brake Pressed
 bool MO2_BTS = 0;
-  //Stalk button status 
-uint8_t GRA_Lever_Pos = 0;  //GRA_Hauptschalt and GRA_Abbrechen
-uint8_t GRA_Tip_Pos = 0;    //GRA_Tip_Down and GRA_Tip_Up
   //Wheel speed sensors
 uint16_t BR3_Rad_kmh_VL = 0;
 uint16_t BR3_Rad_kmh_VR = 0;
@@ -281,7 +277,10 @@ uint8_t MO3_Pedalwert = 0;
 
 //------------- BUS 2 - GW PTCAN -------------//
 
-//                blank for now
+#define GRA_Neu 0x38A
+  //Stalk button status 
+uint8_t GRA_Lever_Pos = 0;  //GRA_Hauptschalt and GRA_Abbrechen
+uint8_t GRA_Tip_Pos = 0;    //GRA_Tip_Down and GRA_Tip_Up
 
 //------------- CAN FWDing below -------------//
 
