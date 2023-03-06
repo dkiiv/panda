@@ -505,7 +505,7 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   // inject messages onto ext can into gateway/OP relay
   //100hz
-  if (msgPump >= 1) {
+  if (true) {
     msgPump--;            // bleeds off msgPump after 2 seconds
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
