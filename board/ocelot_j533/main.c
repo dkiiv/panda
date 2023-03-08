@@ -209,23 +209,9 @@ void CAN3_TX_IRQ_Handler(void) {
   process_can(2);
 }
 
-#define MAX_TIMEOUT 50U
-uint32_t timeout = 0;
-uint32_t timeout_f10 = 0;
-uint32_t timeout_f11 = 0;
-
-#define NO_FAULT 0U
-#define FAULT_BAD_CHECKSUM 1U
-#define FAULT_SEND 2U
 #define FAULT_SCE 3U
-#define FAULT_STARTUP 4U
-#define FAULT_TIMEOUT 5U
-#define FAULT_INVALID 6U
-#define STATE_AEB_CTRL 7U
-
-uint8_t state = FAULT_STARTUP;
-uint8_t ctrl_mode = 0;
-bool send = 0;
+#define STARTUP 4U
+uint8_t state = STARTUP;
 
 // Bus 0: Ext Can
 // Bus 1: Car PTCan
@@ -536,16 +522,13 @@ void TIM3_IRQ_Handler(void) {
       #endif
     }
   }
+  // blink the LED
+  current_board->set_led(LED_GREEN, led_value);
+  led_value = !led_value;
+  TIM3->SR = 0;
 }
 
 // ***************************** main code *****************************
-
-
-void gw(void) {
-  // read/write
-  // maybe we can implement the ADC and DAC here for pedal functionality?
-  watchdog_feed();
-}
 
 int main(void) {
   // Init interrupt table
@@ -611,24 +594,10 @@ int main(void) {
   // 48mhz / 65536 ~= 732
   timer_init(TIM3, 7);
   NVIC_EnableIRQ(TIM3_IRQn);
-
-  // TODO: figure out a function for these GPIOs
-  // set_gpio_mode(GPIOB, 12, MODE_OUTPUT);
-  // set_gpio_output_type(GPIOB, 12, OUTPUT_TYPE_PUSH_PULL);
-  // set_gpio_output(GPIOB, 12, 1);
-
-  // set_gpio_mode(GPIOB, 13, MODE_OUTPUT);
-  // set_gpio_output_type(GPIOB, 13, OUTPUT_TYPE_PUSH_PULL);
-
   watchdog_init();
 
   puts("**** INTERRUPTS ON ****\n");
   enable_interrupts();
-
-  // main pedal loop
-  while (1) {
-    gw();
-  }
 
   return 0;
 }
