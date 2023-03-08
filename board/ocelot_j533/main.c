@@ -488,6 +488,8 @@ void CAN3_SCE_IRQ_Handler(void) {
   llcan_clear_send(CAN3);
 }
 
+int led_value = 0;
+
 void TIM3_IRQ_Handler(void) {
   // inject messages onto ext can into gateway/OP relay
   //100hz
