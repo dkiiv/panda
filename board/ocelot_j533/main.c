@@ -488,8 +488,6 @@ void CAN3_SCE_IRQ_Handler(void) {
   llcan_clear_send(CAN3);
 }
 
-int led_value = 0;
-
 void TIM3_IRQ_Handler(void) {
   // inject messages onto ext can into gateway/OP relay
   //100hz
@@ -524,13 +522,12 @@ void TIM3_IRQ_Handler(void) {
       #endif
     }
   }
-  // blink the LED
-  current_board->set_led(LED_GREEN, led_value);
-  led_value = !led_value;
   TIM3->SR = 0;
 }
 
 // ***************************** main code *****************************
+
+int led_value = 0;
 
 int main(void) {
   // Init interrupt table
@@ -573,6 +570,10 @@ int main(void) {
   USBx->GOTGCTL |= USB_OTG_GOTGCTL_BVALOEN;
   usb_init();
   #endif
+
+  // blink the LED
+  current_board->set_led(LED_GREEN, led_value);
+  led_value = !led_value;
 
   // init can
   bool llcan_speed_set = llcan_set_speed(CAN1, 5000, false, false);
