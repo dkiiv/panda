@@ -488,7 +488,16 @@ void CAN3_SCE_IRQ_Handler(void) {
   llcan_clear_send(CAN3);
 }
 
+uint8_t flash_led = 0;
+int led_value = 0;
+
 void TIM3_IRQ_Handler(void) {
+  if (flash_led >= 10) {
+    set_gpio_output(GPIOC, 6, led_value);
+    led_value = !led_value;
+    flash_led = 0;
+  }
+  flash_led++;
   // inject messages onto ext can into gateway/OP relay
   //100hz
   if (msgPump >= 1) {
@@ -527,7 +536,11 @@ void TIM3_IRQ_Handler(void) {
 
 // ***************************** main code *****************************
 
-int led_value = 0;
+void gw(void) {
+  //read/write
+  //maybe implement the ADC and DAC here for pedal like functionality? perhaps VW IMMO replay?
+  watchdog_feed();
+}
 
 int main(void) {
   // Init interrupt table
@@ -571,10 +584,6 @@ int main(void) {
   usb_init();
   #endif
 
-  // blink the LED
-  current_board->set_led(LED_GREEN, led_value);
-  led_value = !led_value;
-
   // init can
   bool llcan_speed_set = llcan_set_speed(CAN1, 5000, false, false);
   if (!llcan_speed_set) {
@@ -599,8 +608,18 @@ int main(void) {
   NVIC_EnableIRQ(TIM3_IRQn);
   watchdog_init();
 
+  // LED business
+  set_gpio_mode(GPIOC, 6, MODE_OUTPUT);
+  set_gpio_output_type(GPIOC, 6, OUTPUT_TYPE_PUSH_PULL);
+  set_gpio_output(GPIOC, 12, led_value);
+
   puts("**** INTERRUPTS ON ****\n");
   enable_interrupts();
+
+  //main GW loop
+  while (1) {
+    gw();
+  }
 
   return 0;
 }

@@ -4,7 +4,7 @@ set -e
 DFU_UTIL="dfu-util"
 
 cd ..
-PANDA=1 O_J533=1 scons -u
+GATEWAY=1 O_J533=1 scons -u
 PYTHONPATH=.. python3 -c "from python import Panda; Panda().reset(enter_bootstub=True); Panda().reset(enter_bootloader=True)" || true
 cd ocelot_j533
 
