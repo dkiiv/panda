@@ -585,6 +585,11 @@ int main(void) {
     usb_init();
   #endif
 
+  // LED business
+  set_gpio_mode(GPIOC, 6, MODE_OUTPUT);
+  set_gpio_output_type(GPIOC, 6, OUTPUT_TYPE_PUSH_PULL);
+  set_gpio_output(GPIOC, 12, led_value);
+
   // init can
   bool llcan_speed_set = llcan_set_speed(CAN1, 5000, false, false);
   if (!llcan_speed_set) {
@@ -608,11 +613,6 @@ int main(void) {
   timer_init(TIM3, 7);
   NVIC_EnableIRQ(TIM3_IRQn);
   watchdog_init();
-
-  // LED business
-  set_gpio_mode(GPIOC, 6, MODE_OUTPUT);
-  set_gpio_output_type(GPIOC, 6, OUTPUT_TYPE_PUSH_PULL);
-  set_gpio_output(GPIOC, 12, led_value);
 
   puts("**** INTERRUPTS ON ****\n");
   enable_interrupts();
