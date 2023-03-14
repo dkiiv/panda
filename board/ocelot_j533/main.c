@@ -213,6 +213,9 @@ void CAN3_TX_IRQ_Handler(void) {
 #define STARTUP 4U
 uint8_t state = STARTUP;
 
+uint8_t flash_led = 0;
+int led_value = 0;
+
 // Bus 0: Ext Can
 // Bus 1: Car PTCan
 // Bus 2: GW PTCan
@@ -488,10 +491,8 @@ void CAN3_SCE_IRQ_Handler(void) {
   llcan_clear_send(CAN3);
 }
 
-uint8_t flash_led = 0;
-int led_value = 0;
-
 void TIM3_IRQ_Handler(void) {
+  // blink the LED
   if (flash_led >= 10) {
     set_gpio_output(GPIOC, 6, led_value);
     led_value = !led_value;
@@ -579,9 +580,9 @@ int main(void) {
   current_board->init();
   // enable USB
   #ifdef TGW_USB
-  USBx->GOTGCTL |= USB_OTG_GOTGCTL_BVALOVAL;
-  USBx->GOTGCTL |= USB_OTG_GOTGCTL_BVALOEN;
-  usb_init();
+    USBx->GOTGCTL |= USB_OTG_GOTGCTL_BVALOVAL;
+    USBx->GOTGCTL |= USB_OTG_GOTGCTL_BVALOEN;
+    usb_init();
   #endif
 
   // init can
