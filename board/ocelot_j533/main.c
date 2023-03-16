@@ -588,7 +588,7 @@ int main(void) {
   // LED business
   set_gpio_mode(GPIOC, 6, MODE_OUTPUT);
   set_gpio_output_type(GPIOC, 6, OUTPUT_TYPE_PUSH_PULL);
-  set_gpio_output(GPIOC, 12, led_value);
+  set_gpio_output(GPIOC, 6, led_value);
 
   // init can
   bool llcan_speed_set = llcan_set_speed(CAN1, 5000, false, false);
