@@ -224,6 +224,7 @@ int led_value = 0;
 //------------- BUS 0 - EXT CAN --------------//
 
 uint8_t  msgPump = 0;
+bool send = 0;
 uint8_t engagementCounter = 0;
 // mACC_System
 uint8_t  ACS_Zaehler = 0;          //counter
@@ -502,7 +503,7 @@ void TIM3_IRQ_Handler(void) {
   flash_led++;
   // inject messages onto ext can into gateway/OP relay
   //100hz
-  if (msgPump >= 1) {
+  if ((msgPump >= 1) & send) {
     msgPump--;            // bleeds off msgPump after 2 seconds
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_System 0x368
@@ -534,6 +535,7 @@ void TIM3_IRQ_Handler(void) {
     }
   }
   TIM3->SR = 0;
+  send = !send;
 }
 
 // ***************************** main code *****************************
