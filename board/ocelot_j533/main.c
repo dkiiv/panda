@@ -213,6 +213,7 @@ void CAN3_TX_IRQ_Handler(void) {
 #define STARTUP 4U
 uint8_t state = STARTUP;
 
+#define LED_PIN 6
 uint8_t flash_led = 0;
 int led_value = 0;
 
@@ -494,7 +495,7 @@ void CAN3_SCE_IRQ_Handler(void) {
 void TIM3_IRQ_Handler(void) {
   // blink the LED
   if (flash_led >= 10) {
-    set_gpio_output(GPIOC, 6, led_value);
+    set_gpio_output(GPIOC, LED_PIN, led_value);
     led_value = !led_value;
     flash_led = 0;
   }
@@ -586,9 +587,9 @@ int main(void) {
   #endif
 
   // LED business
-  set_gpio_mode(GPIOC, 6, MODE_OUTPUT);
-  set_gpio_output_type(GPIOC, 6, OUTPUT_TYPE_PUSH_PULL);
-  set_gpio_output(GPIOC, 6, led_value);
+  set_gpio_mode(GPIOC, LED_PIN, MODE_OUTPUT);
+  set_gpio_output_type(GPIOC, LED_PIN, OUTPUT_TYPE_PUSH_PULL);
+  set_gpio_output(GPIOC, LED_PIN, led_value);
 
   // init can
   bool llcan_speed_set = llcan_set_speed(CAN1, 5000, false, false);
