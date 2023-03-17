@@ -279,7 +279,7 @@ void CAN1_RX0_IRQ_Handler(void) {
   while ((CAN1->RF0R & CAN_RF0R_FMP0) != 0) {
 
     CAN_FIFOMailBox_TypeDef to_fwd;
-    to_fwd.RIR = CAN1->sFIFOMailBox[0].RIR | 1; // TXQ
+    to_fwd.RIR = CAN1->sFIFOMailBox[0].RIR; // TX disabled. to send, OR this with 1.
     to_fwd.RDTR = CAN1->sFIFOMailBox[0].RDTR;
     to_fwd.RDLR = CAN1->sFIFOMailBox[0].RDLR;
     to_fwd.RDHR = CAN1->sFIFOMailBox[0].RDHR;
@@ -358,6 +358,7 @@ void CAN1_RX0_IRQ_Handler(void) {
           dat[7] |= ACA_Aend_Zeitluecke << 5U;
           to_fwd.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
           to_fwd.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
+          to_fwd.RIR = CAN1->sFIFOMailBox[0].RIR | 1; // allow send
         }        
         break;
       default:
@@ -365,7 +366,8 @@ void CAN1_RX0_IRQ_Handler(void) {
         break;
     }
     // no forward, can 1 is injection
-    can_send(&to_fwd, 0, false);
+    // send modified mACC_GRA_Anziege to CAN2
+    can_send(&to_fwd, 1, false);
     // next
     can_rx(0);
     // CAN1->RF0R |= CAN_RF0R_RFOM0;
@@ -483,7 +485,7 @@ void CAN3_RX0_IRQ_Handler(void) {
     // send to CAN2 with love from CAN3
     can_send(&to_fwd, 1, false);
     // next
-    can_rx(3);
+    can_rx(2);
   }
 }
 
