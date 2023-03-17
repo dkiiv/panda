@@ -294,7 +294,7 @@ void CAN1_RX0_IRQ_Handler(void) {
     #endif
 
     // CAN data buffer
-    uint8_t dat[8];
+    // uint8_t dat[8];
 
     switch (address) {
       case CAN_UPDATE:
