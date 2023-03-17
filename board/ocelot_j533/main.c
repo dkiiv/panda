@@ -279,13 +279,13 @@ uint8_t GRA_Tip_Pos = 0;    //GRA_Tip_Down and GRA_Tip_Up
 void CAN1_RX0_IRQ_Handler(void) {
   while ((CAN1->RF0R & CAN_RF0R_FMP0) != 0) {
 
-    CAN_FIFOMailBox_TypeDef to_fwd;
-    to_fwd.RIR = CAN1->sFIFOMailBox[0].RIR; // TX disabled. to send, OR this with 1.
-    to_fwd.RDTR = CAN1->sFIFOMailBox[0].RDTR;
-    to_fwd.RDLR = CAN1->sFIFOMailBox[0].RDLR;
-    to_fwd.RDHR = CAN1->sFIFOMailBox[0].RDHR;
+    //CAN_FIFOMailBox_TypeDef to_fwd;
+    //to_fwd.RIR = CAN1->sFIFOMailBox[0].RIR; // TX disabled. to send, OR this with 1.
+    //to_fwd.RDTR = CAN1->sFIFOMailBox[0].RDTR;
+    //to_fwd.RDLR = CAN1->sFIFOMailBox[0].RDLR;
+    //to_fwd.RDHR = CAN1->sFIFOMailBox[0].RDHR;
 
-    uint16_t address = CAN1->sFIFOMailBox[0].RIR >> 21;
+    //uint16_t address = CAN1->sFIFOMailBox[0].RIR >> 21;
 
     #ifdef DEBUG_CAN
     puts("CAN1 RX: ");
@@ -296,26 +296,26 @@ void CAN1_RX0_IRQ_Handler(void) {
     // CAN data buffer
     // uint8_t dat[8];
 
-    switch (address) {
-      case CAN_UPDATE:
-        if (GET_BYTES_04(&CAN1->sFIFOMailBox[0]) == 0xdeadface) {
-          if (GET_BYTES_48(&CAN1->sFIFOMailBox[0]) == 0x0ab00b1e) {
-            enter_bootloader_mode = ENTER_SOFTLOADER_MAGIC;
-            NVIC_SystemReset();
-          } else if (GET_BYTES_48(&CAN1->sFIFOMailBox[0]) == 0x02b00b1e) {
-            enter_bootloader_mode = ENTER_BOOTLOADER_MAGIC;
-            NVIC_SystemReset();
-          } else {
-            puts("Failed entering Softloader or Bootloader\n");
-          }
-        }
-        break;
-      default:
-        // FWD as-is
-        break;
-    }
+    //switch (address) {
+    //  case CAN_UPDATE:
+    //    if (GET_BYTES_04(&CAN1->sFIFOMailBox[0]) == 0xdeadface) {
+    //      if (GET_BYTES_48(&CAN1->sFIFOMailBox[0]) == 0x0ab00b1e) {
+    //        enter_bootloader_mode = ENTER_SOFTLOADER_MAGIC;
+    //        NVIC_SystemReset();
+    //      } else if (GET_BYTES_48(&CAN1->sFIFOMailBox[0]) == 0x02b00b1e) {
+    //        enter_bootloader_mode = ENTER_BOOTLOADER_MAGIC;
+    //        NVIC_SystemReset();
+    //      } else {
+    //        puts("Failed entering Softloader or Bootloader\n");
+    //      }
+    //    }
+    //    break;
+    //  default:
+    //    // FWD as-is
+    //    break;
+    //}
     // no forward, can 1 is injection
-    can_send(&to_fwd, 0, false);
+    // can_send(&to_fwd, 0, false);
     // next
     can_rx(0);
     // CAN1->RF0R |= CAN_RF0R_RFOM0;
