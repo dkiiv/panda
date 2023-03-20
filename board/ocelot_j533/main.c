@@ -457,34 +457,6 @@ void TIM3_IRQ_Handler(void) {
   if ((msgPump >= 1) & send) {
     msgPump--;            // bleeds off msgPump after 2 seconds
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
-      uint8_t dat[8]; //SEND mACC_System
-
-      dat[0] = volkswagen_pq_compute_checksum(dat, 8);
-      dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
-      dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
-      dat[3] = (ACS_Sollbeschl >> 3U) & 0xFF;
-      dat[4] = ((ACS_Sollbeschl << 8U) & 7U) << 5U | ACS_Anhaltewunsch << 1U;
-      dat[5] = ACS_zul_Regelabw;
-      dat[6] = ACS_max_AendGrad;
-      dat[7] = 0;
-
-      CAN_FIFOMailBox_TypeDef to_send;
-      to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-      to_send.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
-      to_send.RDTR = 8;
-      to_send.RIR = (mACC_System << 21) | 1U;
-      can_send(&to_send, 0, false);
-
-      ACS_Zaehler++;
-      ACS_Zaehler &= 15;
-    }
-    else {
-      // old can packet hasn't sent!
-      #ifdef DEBUG_CAN
-        puts("CAN1 MISS1\n");
-      #endif
-    }
-    if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8]; //SEND mACC_GRA_Anziege
       if (GRA_Tip_Pos >= 1) {
         if (ACA_V_Wunsch == 255 || (ACS_Sta_ADR >= 2 && GRA_Tip_Pos == 2)) {
@@ -501,11 +473,13 @@ void TIM3_IRQ_Handler(void) {
         engagementCounter++;
         ACS_Sta_ADR = 1;              //ADR Status (1 active)
         ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
+        ACS_Sollbeschl = 1444;        //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
         ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
       }
       if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
         if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
           ACA_StaACC = 1;             //ADR Status in cluster (1 ACC ok but disabled)
+          ACS_Sollbeschl = 2046;      //Wipe set speed to not set yet
         }
         ACS_Sta_ADR = 2;              //ADR Status (2 passive)
         ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
@@ -536,6 +510,34 @@ void TIM3_IRQ_Handler(void) {
       to_send.RDTR = 8;
       to_send.RIR = (mACC_GRA_Anziege << 21) | 1U;
       can_send(&to_send, 0, false);
+    }
+    else {
+      // old can packet hasn't sent!
+      #ifdef DEBUG_CAN
+        puts("CAN1 MISS1\n");
+      #endif
+    }
+    if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
+      uint8_t dat[8]; //SEND mACC_System
+
+      dat[0] = volkswagen_pq_compute_checksum(dat, 8);
+      dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
+      dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
+      dat[3] = (ACS_Sollbeschl >> 3U) & 0xFF;
+      dat[4] = ((ACS_Sollbeschl << 8U) & 7U) << 5U | ACS_Anhaltewunsch << 1U;
+      dat[5] = ACS_zul_Regelabw;
+      dat[6] = ACS_max_AendGrad;
+      dat[7] = 0;
+
+      CAN_FIFOMailBox_TypeDef to_send;
+      to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
+      to_send.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
+      to_send.RDTR = 8;
+      to_send.RIR = (mACC_System << 21) | 1U;
+      can_send(&to_send, 0, false);
+
+      ACS_Zaehler++;
+      ACS_Zaehler &= 15;
     }
     else {
       // old can packet hasn't sent!
