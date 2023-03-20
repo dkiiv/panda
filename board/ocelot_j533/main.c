@@ -474,16 +474,16 @@ void TIM3_IRQ_Handler(void) {
         ACS_Sta_ADR = 1;                        //ADR Status (1 active)
         ACS_FreigSollB = 1;                     //Activation of ACS_Sollbeschl (1 allowed)
         ACS_Sollbeschl = 1444;                  //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
-        ACA_StaACC = 3;                         //ADR Status in cluster (3 ACC Active)
+        ACA_StaACC = 3;                         //ACC Status in cluster (3 ACC Active)
       }
       if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
         if (GRA_Lever_Pos == 1) {           //Resets the setpoint speed when 3 position switch is flicked into toggle off
-          ACA_StaACC = 1;                   //ADR Status in cluster (1 ACC ok but disabled)
+          ACA_StaACC = 1;                   //ACC Status in cluster (1 ACC ok but disabled)
         } else {
-          ACS_Sta_ADR = 2;                  //ADR Status (2 passive)
+          ACA_StaACC = 2;                   //ACC Status in cluster (2 ACC Passive)
         }
         ACS_FreigSollB = 0;                 //Activation of ACS_Sollbeschl (0 not allowed)
-        ACA_StaACC = 2;                     //ADR Status in cluster (2 ACC Passive)
+        ACS_Sta_ADR = 2;                    //ADR Status (2 passive)
         ACS_Sollbeschl = 2046;              //Wipe set speed to not set yet
       }
       if (engagementCounter >= 1) {
