@@ -454,36 +454,37 @@ void TIM3_IRQ_Handler(void) {
   flash_led++;
   // inject messages onto ext can into gateway/OP relay
   //100hz
-  if ((msgPump >= 1) & send) {
+  if ((msgPump >= 1) && send) {
     msgPump--;            // bleeds off msgPump after 2 seconds
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
-      uint8_t dat[8]; //SEND mACC_GRA_Anziege
-      if (GRA_Tip_Pos >= 1) {
-        if (ACA_V_Wunsch == 255 || (ACS_Sta_ADR >= 2 && GRA_Tip_Pos == 2)) {
+      uint8_t dat[8];     //SEND mACC_GRA_Anziege
+      if (GRA_Tip_Pos >= 1) {                                                 // module engagement logic
+        if (ACA_V_Wunsch == 255 || (ACS_Sta_ADR >= 2 && GRA_Tip_Pos == 2)) {  // set speed to the nearest 5
           vEgoKPH = ((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4) & 0xFFFFFFFFFFFFFFF;
           vEgoMPH = (vEgoKPH * kphMphConv) * 0.01;
           ACA_V_Wunsch = ((int)((vEgoMPH + 2) / 5)) * 5;
-        } else if (GRA_Tip_Pos == 2) {
+        } else if (GRA_Tip_Pos == 2) {                                        // decrease setpoint by 5
           ACA_V_Wunsch = ACA_V_Wunsch - 5;
-        } else if (GRA_Tip_Pos == 1 && ACS_Sta_ADR >= 2) {
+        } else if (GRA_Tip_Pos == 1 && ACS_Sta_ADR >= 2) {                    // resume
           ACA_V_Wunsch = ACA_V_Wunsch;
-        } else {
+        } else {                                                              // increase setpoint by 5
           ACA_V_Wunsch = ACA_V_Wunsch + 5;
         }
         engagementCounter++;
-        ACS_Sta_ADR = 1;              //ADR Status (1 active)
-        ACS_FreigSollB = 1;           //Activation of ACS_Sollbeschl (1 allowed)
-        ACS_Sollbeschl = 1444;        //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
-        ACA_StaACC = 3;               //ADR Status in cluster (3 ACC Active)
+        ACS_Sta_ADR = 1;                        //ADR Status (1 active)
+        ACS_FreigSollB = 1;                     //Activation of ACS_Sollbeschl (1 allowed)
+        ACS_Sollbeschl = 1444;                  //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
+        ACA_StaACC = 3;                         //ADR Status in cluster (3 ACC Active)
       }
       if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
-        if (GRA_Lever_Pos == 1) {  //Resets the setpoint speed when 3 position switch is flicked into toggle off
-          ACA_StaACC = 1;             //ADR Status in cluster (1 ACC ok but disabled)
-          ACS_Sollbeschl = 2046;      //Wipe set speed to not set yet
+        if (GRA_Lever_Pos == 1) {           //Resets the setpoint speed when 3 position switch is flicked into toggle off
+          ACA_StaACC = 1;                   //ADR Status in cluster (1 ACC ok but disabled)
+        } else {
+          ACS_Sta_ADR = 2;                  //ADR Status (2 passive)
         }
-        ACS_Sta_ADR = 2;              //ADR Status (2 passive)
-        ACS_FreigSollB = 0;           //Activation of ACS_Sollbeschl (0 not allowed)
-        ACA_StaACC = 2;               //ADR Status in cluster (2 ACC Passive)
+        ACS_FreigSollB = 0;                 //Activation of ACS_Sollbeschl (0 not allowed)
+        ACA_StaACC = 2;                     //ADR Status in cluster (2 ACC Passive)
+        ACS_Sollbeschl = 2046;              //Wipe set speed to not set yet
       }
       if (engagementCounter >= 1) {
         ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
@@ -491,8 +492,8 @@ void TIM3_IRQ_Handler(void) {
         engagementCounter &= 100;     //Constrain engagement counter to 1 second
       } else {
         ACA_AnzDisplay = 0;           //ADR Display Status (0 no display)
-      }
-      if (MO3_Pedalwert > 0 && ACA_StaACC == 3) {   // This sets ACA_StaACC to 4, ACC in background as driver is overriding it
+      }                               // This sets ACA_StaACC to 4, ACC in background as driver is overriding it
+      if (MO3_Pedalwert > 0 && (ACA_StaACC == 3 || ACA_StaACC == 4)) {
         ACA_StaACC = 4;
       }
 
