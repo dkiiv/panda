@@ -193,6 +193,42 @@ uint8_t volkswagen_pq_compute_checksum(uint8_t *dat, int len) {
   return checksum & 0xFF;
 }
 
+uint16_t wheelSpeed(uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
+  float kphMphConv = 0.621371;
+  uint16_t vEgoKPH = ((VL + VR + HL + HR) / 4) & 0xFFFFFFFFFFFFFFF;
+  uint16_t vEgoMPH = (vEgoKPH * kphMphConv) * 0.01;
+  return vEgoMPH & 0xFFFF;
+}
+
+uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8_t V_Wunsch, uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
+  if (Lever_Pos == 1) {
+    V_Wunsch = 255;           //Resets the setpoint speed when 3 position switch is flicked into toggle off
+  } else {
+    if (V_Wunsch == 255 || (Sta_ADR >= 2 && Tip_Pos == 2)) {      // set speed to the nearest 5
+        V_Wunsch = ((int)((wheelSpeed(VL, VR, HL, HR) + 2) / 5)) * 5;
+      } else if (Tip_Pos == 2) {                                    // decrease setpoint by 5
+        V_Wunsch = V_Wunsch - 5;
+      } else if (Tip_Pos == 1 && Sta_ADR >= 2) {                    // resume
+        V_Wunsch = V_Wunsch;
+      } else {                                                      // increase setpoint by 5
+        V_Wunsch = V_Wunsch + 5;
+      }
+  }
+  return V_Wunsch & 0xFF;
+}
+
+uint16_t accelReq(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t brakePedal, uint16_t Sollbeschl) {
+  // TODO: make this mimic stock CC, will need to rope in the wheelSpeed function. limit max accel to 2, and max decel to -1
+  //       max accel starting at 10mph below Wunsch, max decel starting at 5 over Wunsch. can tweak as needed to prevent oscillation
+  if (Tip_Pos >= 1) {
+    Sollbeschl = 1444;                  //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
+  }
+  if (Lever_Pos >= 1 || brakePedal) {
+    Sollbeschl = 2046;                  //Wipe set speed to not set yet
+  }
+  return Sollbeschl & 0xFFFF;
+}
+
 #define CAN_UPDATE  0xF0 //bootloader
 #define COUNTER_CYCLE 0xFU
 uint8_t counter = 0;
@@ -261,9 +297,6 @@ uint16_t BR3_Rad_kmh_VL = 0;
 uint16_t BR3_Rad_kmh_VR = 0;
 uint16_t BR3_Rad_kmh_HL = 0;
 uint16_t BR3_Rad_kmh_HR = 0;
-float kphMphConv = 0.621371;
-uint16_t vEgoKPH = 0;
-uint16_t vEgoMPH = 0;
   //Pedal position
 uint8_t MO3_Pedalwert = 0;
 
@@ -459,32 +492,15 @@ void TIM3_IRQ_Handler(void) {
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8];     //SEND mACC_GRA_Anziege
       if (GRA_Tip_Pos >= 1) {                                                 // module engagement logic
-        if (ACA_V_Wunsch == 255 || (ACS_Sta_ADR >= 2 && GRA_Tip_Pos == 2)) {  // set speed to the nearest 5
-          vEgoKPH = ((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4) & 0xFFFFFFFFFFFFFFF;
-          vEgoMPH = (vEgoKPH * kphMphConv) * 0.01;
-          ACA_V_Wunsch = ((int)((vEgoMPH + 2) / 5)) * 5;
-        } else if (GRA_Tip_Pos == 2) {                                        // decrease setpoint by 5
-          ACA_V_Wunsch = ACA_V_Wunsch - 5;
-        } else if (GRA_Tip_Pos == 1 && ACS_Sta_ADR >= 2) {                    // resume
-          ACA_V_Wunsch = ACA_V_Wunsch;
-        } else {                                                              // increase setpoint by 5
-          ACA_V_Wunsch = ACA_V_Wunsch + 5;
-        }
         engagementCounter++;
         ACS_Sta_ADR = 1;                        //ADR Status (1 active)
         ACS_FreigSollB = 1;                     //Activation of ACS_Sollbeschl (1 allowed)
-        ACS_Sollbeschl = 1444;                  //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
         ACA_StaACC = 3;                         //ACC Status in cluster (3 ACC Active)
       }
       if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
-        if (GRA_Lever_Pos == 1) {           //Resets the setpoint speed when 3 position switch is flicked into toggle off
-          ACA_StaACC = 1;                   //ACC Status in cluster (1 ACC ok but disabled)
-        } else {
-          ACA_StaACC = 2;                   //ACC Status in cluster (2 ACC Passive)
-        }
+        ACA_StaACC = 2;                     //ACC Status in cluster (2 ACC Passive)
         ACS_FreigSollB = 0;                 //Activation of ACS_Sollbeschl (0 not allowed)
         ACS_Sta_ADR = 2;                    //ADR Status (2 passive)
-        ACS_Sollbeschl = 2046;              //Wipe set speed to not set yet
       }
       if (engagementCounter >= 1) {
         ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
@@ -500,7 +516,7 @@ void TIM3_IRQ_Handler(void) {
       dat[0] = volkswagen_pq_compute_checksum(dat, 8);
       dat[1] |= ACA_StaACC << 5U;
       dat[2] |= ACA_AnzDisplay << 6U | ACA_Zeitluecke << 2U;
-      dat[3] = ACA_V_Wunsch;
+      dat[3] = setpointSpeed(GRA_Lever_Pos, GRA_Tip_Pos, ACS_Sta_ADR, ACA_V_Wunsch, BR3_Rad_kmh_VL, BR3_Rad_kmh_VR, BR3_Rad_kmh_HL, BR3_Rad_kmh_HR);
       dat[4] |= ACA_PrioDisp << 3U;
       dat[5] |= ACA_gemZeitl << 4U;
       dat[7] |= ACA_Aend_Zeitluecke << 5U | ACS_Zaehler;
@@ -524,8 +540,8 @@ void TIM3_IRQ_Handler(void) {
       dat[0] = volkswagen_pq_compute_checksum(dat, 8);
       dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
       dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
-      dat[3] = (ACS_Sollbeschl >> 3U) & 0xFF;
-      dat[4] = ((ACS_Sollbeschl << 8U) & 7U) << 5U | ACS_Anhaltewunsch << 1U;
+      dat[3] = (accelReq(GRA_Lever_Pos, GRA_Tip_Pos, MO2_BTS, ACS_Sollbeschl) >> 3U) & 0xFF;
+      dat[4] = (accelReq(GRA_Lever_Pos, GRA_Tip_Pos, MO2_BTS, ACS_Sollbeschl) & 7U) << 5U | ACS_Anhaltewunsch << 1U;
       dat[5] = ACS_zul_Regelabw;
       dat[6] = ACS_max_AendGrad;
       dat[7] = 0;
