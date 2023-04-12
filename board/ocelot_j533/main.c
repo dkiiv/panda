@@ -193,13 +193,15 @@ uint8_t volkswagen_pq_compute_checksum(uint8_t *dat, int len) {
   return checksum & 0xFF;
 }
 
+#define WHEELSPEED wheelSpeed(BR3_Rad_kmh_VL, BR3_Rad_kmh_VR, BR3_Rad_kmh_HL, BR3_Rad_kmh_HR)
 uint16_t wheelSpeed(uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
   float kphMphConv = 0.621371;
-  uint16_t vEgoKPH = ((VL + VR + HL + HR) / 4) & 0xFFFFFFFFFFFFFFF;
+  uint16_t vEgoKPH = ((VL + VR + HL + HR) / 4) & 0xFFFF;
   uint16_t vEgoMPH = (vEgoKPH * kphMphConv) * 0.01;
   return vEgoMPH & 0xFFFF;
 }
 
+#define SETPOINTSPEED setpointSpeed(GRA_Lever_Pos, GRA_Tip_Pos, ACS_Sta_ADR, ACA_V_Wunsch, BR3_Rad_kmh_VL, BR3_Rad_kmh_VR, BR3_Rad_kmh_HL, BR3_Rad_kmh_HR)
 uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8_t V_Wunsch, uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
   if (Lever_Pos == 1) {
     V_Wunsch = 255;           //Resets the setpoint speed when 3 position switch is flicked into toggle off
@@ -217,15 +219,24 @@ uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8
   return V_Wunsch & 0xFF;
 }
 
-uint16_t accelReq(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t brakePedal, uint16_t Sollbeschl) {
+uint16_t accelReq(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t brakePedal, uint16_t Sollbeschl, uint16_t wheelSpeed, uint8_t setpointSpeed, uint8_t FreigSollB) {
   // TODO: make this mimic stock CC, will need to rope in the wheelSpeed function. limit max accel to 2, and max decel to -1
   //       max accel starting at 10mph below Wunsch, max decel starting at 5 over Wunsch. can tweak as needed to prevent oscillation
-  if (Tip_Pos >= 1) {
-    Sollbeschl = 1444;                  //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
+  short int accel[3] = {-1, 0, 2};
+  short int maxDev[2] = {-10, 5};
+
+  if (FreigSollB) {
+    if (Tip_Pos >= 1) {
+      Sollbeschl = 1444;                  //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
+    }
   }
   if (Lever_Pos >= 1 || brakePedal) {
     Sollbeschl = 2046;                  //Wipe set speed to not set yet
   }
+  UNUSED(accel);
+  UNUSED(maxDev);
+  UNUSED(wheelSpeed);
+  UNUSED(setpointSpeed);
   return Sollbeschl & 0xFFFF;
 }
 
@@ -540,8 +551,8 @@ void TIM3_IRQ_Handler(void) {
       dat[0] = volkswagen_pq_compute_checksum(dat, 8);
       dat[1] = ACS_Zaehler << 4U | ACS_Sta_ADR << 2U;
       dat[2] = ACS_StSt_Info << 6U | ACS_MomEingriff << 5U | ACS_Typ_ACC << 3U | ACS_FreigSollB;
-      dat[3] = (accelReq(GRA_Lever_Pos, GRA_Tip_Pos, MO2_BTS, ACS_Sollbeschl) >> 3U) & 0xFF;
-      dat[4] = (accelReq(GRA_Lever_Pos, GRA_Tip_Pos, MO2_BTS, ACS_Sollbeschl) & 7U) << 5U | ACS_Anhaltewunsch << 1U;
+      dat[3] = (accelReq(GRA_Lever_Pos, GRA_Tip_Pos, MO2_BTS, ACS_Sollbeschl, WHEELSPEED, SETPOINTSPEED, ACS_FreigSollB) >> 3U) & 0xFF;
+      dat[4] = (accelReq(GRA_Lever_Pos, GRA_Tip_Pos, MO2_BTS, ACS_Sollbeschl, WHEELSPEED, SETPOINTSPEED, ACS_FreigSollB) & 7U) << 5U | ACS_Anhaltewunsch << 1U;
       dat[5] = ACS_zul_Regelabw;
       dat[6] = ACS_max_AendGrad;
       dat[7] = 0;
