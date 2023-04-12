@@ -222,21 +222,31 @@ uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8
 uint16_t accelReq(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t brakePedal, uint16_t Sollbeschl, uint16_t wheelSpeed, uint8_t setpointSpeed, uint8_t FreigSollB) {
   // TODO: make this mimic stock CC, will need to rope in the wheelSpeed function. limit max accel to 2, and max decel to -1
   //       max accel starting at 10mph below Wunsch, max decel starting at 5 over Wunsch. can tweak as needed to prevent oscillation
-  short int accel[3] = {-1, 0, 2};
-  short int maxDev[2] = {-10, 5};
+  short int accel[3] = {1244, 1444, 1844};  // -1, 0, and 2 (derived from ((7.22 - NUM) / 0.005))
+  short int maxDev[3] = {-10, 0, 5};        // limits to apply maxium accel/decel values based on deviation from set speed
 
   if (FreigSollB) {
     if (Tip_Pos >= 1) {
-      Sollbeschl = 1444;                  //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
+      Sollbeschl = accel[1]; // here so when user is pressing buttons we arent trying to accel/decel, might remove later
     }
+    if ((wheelSpeed - setpointSpeed) <= maxDev[0]) {
+      Sollbeschl = accel[2];
+    } else if ((wheelSpeed - setpointSpeed) >= maxDev[2]) {
+      Sollbeschl = accel[0];
+    } else {
+      if ((wheelSpeed - setpointSpeed) < maxDev[1]) { //between -10 and 0 deviation
+        Sollbeschl = (accel[1] + ((setpointSpeed - wheelSpeed) * 40));
+      }
+      if ((wheelSpeed - setpointSpeed) > maxDev[1]) { //between 0 and 5 deviation
+        Sollbeschl = (accel[1] - ((wheelSpeed - setpointSpeed) * 40));
+      }
+      Sollbeschl = accel[1];                          //accel request 0, 0 deviation
+    }
+  } else {
+    Sollbeschl = 2046;                  //Wipe set speed to not set yet, Sollbeschl not allowed
   }
-  if (Lever_Pos >= 1 || brakePedal) {
-    Sollbeschl = 2046;                  //Wipe set speed to not set yet
-  }
-  UNUSED(accel);
-  UNUSED(maxDev);
-  UNUSED(wheelSpeed);
-  UNUSED(setpointSpeed);
+  UNUSED(Lever_Pos);
+  UNUSED(brakePedal);
   return Sollbeschl & 0xFFFF;
 }
 
