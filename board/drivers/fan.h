@@ -18,7 +18,7 @@ const uint8_t FAN_STALL_THRESHOLD_MIN = 3U;
 const uint8_t FAN_STALL_THRESHOLD_MAX = 8U;
 
 
-#if 0
+#ifndef QCOM
 void fan_set_power(uint8_t percentage) {
   fan_state.target_rpm = ((current_board->fan_max_rpm * CLAMP(percentage, 0U, 100U)) / 100U);
 }
@@ -95,6 +95,11 @@ void fan_tick(void) {
   }
 }
 #else
+void llfan_init(void);
+void fan_init(void) {
+  llfan_init();
+}
+
 // dp - C2 / EON Fan control logic
 void fan_set_power(uint8_t percentage){
   fan_state.power = percentage;
