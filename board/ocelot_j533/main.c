@@ -196,9 +196,11 @@ uint8_t volkswagen_pq_compute_checksum(uint8_t *dat, int len) {
 #define WHEELSPEED wheelSpeed(BR3_Rad_kmh_VL, BR3_Rad_kmh_VR, BR3_Rad_kmh_HL, BR3_Rad_kmh_HR)
 uint16_t wheelSpeed(uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
   float kphMphConv = 0.621371;
+  float mphKphConv = 1.60934;
   uint16_t vEgoKPH = ((VL + VR + HL + HR) / 4) & 0xFFFF;
-  uint16_t vEgoMPH = (vEgoKPH * kphMphConv) * 0.01;
-  return vEgoMPH & 0xFFFF;
+  uint16_t vEgoMPH = ((int)(((vEgoKPH * kphMphConv) + 2) / 5)) * 5;
+  uint16_t c_kph = (vEgoMPH * mphKphConv);
+  return c_kph & 0xFFFF;
 }
 
 #define SETPOINTSPEED setpointSpeed(GRA_Lever_Pos, GRA_Tip_Pos, ACS_Sta_ADR, ACA_V_Wunsch, BR3_Rad_kmh_VL, BR3_Rad_kmh_VR, BR3_Rad_kmh_HL, BR3_Rad_kmh_HR)
@@ -207,7 +209,7 @@ uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8
     V_Wunsch = 255;           //Resets the setpoint speed when 3 position switch is flicked into toggle off
   } else {
     if (V_Wunsch == 255 || (Sta_ADR >= 2 && Tip_Pos == 2)) {      // set speed to the nearest 5
-        V_Wunsch = ((int)((wheelSpeed(VL, VR, HL, HR) + 2) / 5)) * 5;
+        V_Wunsch = wheelSpeed(VL, VR, HL, HR);
       } else if (Tip_Pos == 2) {                                    // decrease setpoint by 5
         V_Wunsch = V_Wunsch - 5;
       } else if (Tip_Pos == 1 && Sta_ADR >= 2) {                    // resume
