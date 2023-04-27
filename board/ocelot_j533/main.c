@@ -205,17 +205,18 @@ uint16_t wheelSpeed(uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
 
 #define SETPOINTSPEED setpointSpeed(GRA_Lever_Pos, GRA_Tip_Pos, ACS_Sta_ADR, ACA_V_Wunsch, BR3_Rad_kmh_VL, BR3_Rad_kmh_VR, BR3_Rad_kmh_HL, BR3_Rad_kmh_HR)
 uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8_t V_Wunsch, uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
+  float mphKphConv = 1.60934;
   if (Lever_Pos == 1) {
     V_Wunsch = 255;           //Resets the setpoint speed when 3 position switch is flicked into toggle off
   } else {
     if (V_Wunsch == 255 || (Sta_ADR >= 2 && Tip_Pos == 2)) {      // set speed to the nearest 5
         V_Wunsch = wheelSpeed(VL, VR, HL, HR);
-      } else if (Tip_Pos == 2) {                                    // decrease setpoint by 5
-        V_Wunsch = V_Wunsch - 5;
-      } else if (Tip_Pos == 1 && Sta_ADR >= 2) {                    // resume
+      } else if (Tip_Pos == 2) {                                  // decrease setpoint by 5
+        V_Wunsch = V_Wunsch - (5 * mphKphConv);
+      } else if (Tip_Pos == 1 && Sta_ADR >= 2) {                  // resume
         V_Wunsch = V_Wunsch;
-      } else {                                                      // increase setpoint by 5
-        V_Wunsch = V_Wunsch + 5;
+      } else {                                                    // increase setpoint by 5
+        V_Wunsch = V_Wunsch + (5 * mphKphConv);
       }
   }
   return V_Wunsch & 0xFF;
@@ -224,7 +225,8 @@ uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8
 uint16_t accelReq(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t brakePedal, uint16_t Sollbeschl, uint16_t wheelSpeed, uint8_t setpointSpeed, uint8_t FreigSollB) {
   //TODO: add debounce so that there is 0.5s delay between button press and accel
   short int accel[3] = {1244, 1444, 1844};  // -1, 0, and 2 (derived from ((7.22 - NUM) / 0.005))
-  short int maxDev[3] = {-10, 0, 5};        // limits to apply maxium accel/decel values based on deviation from set speed
+  short int maxDev[3] = {-16, 0, 8};        // limits to apply maxium accel/decel values based on deviation from set speed
+                                            // array in KPH as speed is also KPH
 
   if (FreigSollB) {
     if (Tip_Pos >= 1) {
@@ -235,10 +237,10 @@ uint16_t accelReq(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t brakePedal, uint16
       } else if ((wheelSpeed - setpointSpeed) >= maxDev[2]) {
         Sollbeschl = accel[0];
       } else {
-        if ((wheelSpeed - setpointSpeed) < maxDev[1]) {           //between -10 and 0 deviation
-          Sollbeschl = (accel[1] + ((setpointSpeed - wheelSpeed) * 40));
-        } else if ((wheelSpeed - setpointSpeed) > maxDev[1]) {    //between 0 and 5 deviation
-          Sollbeschl = (accel[1] - ((wheelSpeed - setpointSpeed) * 40));
+        if ((wheelSpeed - setpointSpeed) < maxDev[1]) {           //between -10 and 0 MPH deviation
+          Sollbeschl = (accel[1] + ((setpointSpeed - wheelSpeed) * 25));
+        } else if ((wheelSpeed - setpointSpeed) > maxDev[1]) {    //between 0 and 5 MPH deviation
+          Sollbeschl = (accel[1] - ((wheelSpeed - setpointSpeed) * 25));
         } else {
           Sollbeschl = accel[1];                          //accel request 0, 0 deviation
         }
