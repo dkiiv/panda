@@ -203,6 +203,9 @@ uint16_t wheelSpeed(uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
   return c_kph & 0xFFFF;
 }
 
+// TODO:
+// Use signal ACA_kmh_mph to calculate setpoint speed and accel in KMH or MPH
+
 #define SETPOINTSPEED setpointSpeed(GRA_Lever_Pos, GRA_Tip_Pos, ACS_Sta_ADR, ACA_V_Wunsch, BR3_Rad_kmh_VL, BR3_Rad_kmh_VR, BR3_Rad_kmh_HL, BR3_Rad_kmh_HR)
 uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8_t V_Wunsch, uint16_t VL, uint16_t VR, uint16_t HL, uint16_t HR) {
   float mphKphConv = 1.60934;
@@ -304,6 +307,7 @@ uint8_t  ACA_StaACC = 1;           //ADR Status in cluster (1 ACC ok but disable
 uint8_t  ACA_AnzDisplay = 0;       //ADR Display Status (0 no-Display)
 uint8_t  ACA_Zeitluecke = 7;       //Display set time gap (0 not defined / 1-15 Distances)
 uint8_t  ACA_V_Wunsch = 255;       //Display set speed, eventually tie this into displaying the set cruisecontrol speed without OP (255 not set yet)
+uint8_t  ACA_kmh_mph = 1;          //0: KMH or 1: MPH
 uint8_t  ACA_Aend_Zeitluecke = 1;  //Display started
 uint8_t  ACA_PrioDisp = 1;         //ACC Display priority (0 High Prio / 1 Prio / 2 Low Prio / 3 No Request)
 uint8_t  ACA_gemZeitl = 0;         //Average follow distance (0 No lead / 1-15 Actual average distance)
@@ -542,7 +546,7 @@ void TIM3_IRQ_Handler(void) {
       dat[1] |= ACA_StaACC << 5U;
       dat[2] |= ACA_AnzDisplay << 6U | ACA_Zeitluecke << 2U;
       dat[3] = setpointSpeed(GRA_Lever_Pos, GRA_Tip_Pos, ACS_Sta_ADR, ACA_V_Wunsch, BR3_Rad_kmh_VL, BR3_Rad_kmh_VR, BR3_Rad_kmh_HL, BR3_Rad_kmh_HR);
-      dat[4] |= ACA_PrioDisp << 3U;
+      dat[4] |= ACA_kmh_mph << 7U | ACA_PrioDisp << 3U;
       dat[5] |= ACA_gemZeitl << 4U;
       dat[7] |= ACA_Aend_Zeitluecke << 5U | ACS_Zaehler;
 
