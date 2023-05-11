@@ -212,7 +212,7 @@ uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8
   if (Lever_Pos == 1) {
     V_Wunsch = 255;           //Resets the setpoint speed when 3 position switch is flicked into toggle off
   } else {
-    if (V_Wunsch == 255 || (Sta_ADR >= 2 && Tip_Pos == 2)) {      // set speed to the nearest 5
+    if (Sta_ADR >= 2 && Tip_Pos == 2) {                           // set speed to the nearest 5
         V_Wunsch = wheelSpeed(VL, VR, HL, HR);
       } else if (Tip_Pos == 2) {                                  // decrease setpoint by 5
         V_Wunsch = V_Wunsch - (5 * mphKphConv);
@@ -222,7 +222,7 @@ uint8_t setpointSpeed(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t Sta_ADR, uint8
         V_Wunsch = V_Wunsch + (5 * mphKphConv);
       }
   }
-  return V_Wunsch & 0xFF;
+  return (int)V_Wunsch & 0xFF;
 }
 
 uint16_t accelReq(uint8_t Lever_Pos, uint8_t Tip_Pos, uint8_t brakePedal, uint16_t Sollbeschl, uint16_t wheelSpeed, uint8_t setpointSpeed, uint8_t FreigSollB) {
