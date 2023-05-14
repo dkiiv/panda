@@ -391,7 +391,7 @@ void CAN1_SCE_IRQ_Handler(void) {
 }
 
 void CAN2_RX0_IRQ_Handler(void) {
-  // to the gateway (PT)
+  // to the gateway (PT) | from the car
   while ((CAN2->RF0R & CAN_RF0R_FMP0) != 0) {
 
     CAN_FIFOMailBox_TypeDef to_fwd;
@@ -451,7 +451,7 @@ void CAN2_SCE_IRQ_Handler(void) {
 }
 
 void CAN3_RX0_IRQ_Handler(void) {
-  // From the gateway (PT)
+  // From the gateway (PT) | to the car
   while ((CAN3->RF0R & CAN_RF0R_FMP0) != 0) {
 
     CAN_FIFOMailBox_TypeDef to_fwd;
