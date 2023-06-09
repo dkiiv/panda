@@ -514,23 +514,30 @@ void TIM3_IRQ_Handler(void) {
     flash_led = 0;
   }
   flash_led++;
+
+  // module engagement logic
+  if (GRA_Tip_Pos >= 1) {
+    engagementCounter++;
+    ACS_Sta_ADR = 1;                        //ADR Status (1 active)
+    ACS_FreigSollB = 1;                     //Activation of ACS_Sollbeschl (1 allowed)
+    ACA_StaACC = 3;                         //ACC Status in cluster (3 ACC Active)
+  }
+  if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
+    ACA_StaACC = 2;                     //ACC Status in cluster (2 ACC Passive)
+    ACS_FreigSollB = 0;                 //Activation of ACS_Sollbeschl (0 not allowed)
+    ACS_Sta_ADR = 2;                    //ADR Status (2 passive)
+  }
+  if (MO3_Pedalwert > 0 && (ACA_StaACC == 3 || ACA_StaACC == 4)) {
+    ACA_StaACC = 4;
+  }
+
   // inject messages onto ext can into gateway/OP relay
-  //100hz
+  // 100hz
   if ((msgPump >= 1) && send) {
     msgPump--;            // bleeds off msgPump after 2 seconds
     if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
       uint8_t dat[8];     //SEND mACC_GRA_Anziege
-      if (GRA_Tip_Pos >= 1) {                                                 // module engagement logic
-        engagementCounter++;
-        ACS_Sta_ADR = 1;                        //ADR Status (1 active)
-        ACS_FreigSollB = 1;                     //Activation of ACS_Sollbeschl (1 allowed)
-        ACA_StaACC = 3;                         //ACC Status in cluster (3 ACC Active)
-      }
-      if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control
-        ACA_StaACC = 2;                     //ACC Status in cluster (2 ACC Passive)
-        ACS_FreigSollB = 0;                 //Activation of ACS_Sollbeschl (0 not allowed)
-        ACS_Sta_ADR = 2;                    //ADR Status (2 passive)
-      }
+
       if (engagementCounter >= 1) {
         ACA_AnzDisplay = 1;           //ADR Display Status (1 Display)
         engagementCounter++;
@@ -538,9 +545,6 @@ void TIM3_IRQ_Handler(void) {
       } else {
         ACA_AnzDisplay = 0;           //ADR Display Status (0 no display)
       }                               // This sets ACA_StaACC to 4, ACC in background as driver is overriding it
-      if (MO3_Pedalwert > 0 && (ACA_StaACC == 3 || ACA_StaACC == 4)) {
-        ACA_StaACC = 4;
-      }
 
       dat[0] = volkswagen_pq_compute_checksum(dat, 8);
       dat[1] |= ACA_StaACC << 5U;
