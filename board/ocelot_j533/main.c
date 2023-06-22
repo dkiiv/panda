@@ -456,7 +456,6 @@ void TIM3_IRQ_Handler(void) {
   // TODO:
   // 1: Factor in something nice for KPH / MPH toggling
   // 2: Factor in something nice for toggle between 1 and 5 speed increments for KPH OR MPH
-  // 3: Add CC emulation, where module will maintain set speed while ENGAGED and stop accel when overridden
 
   if (GRA_Tip_Pos >= 1) {
     if (ACA_V_Wunsch == 255 || (ACS_Sta_ADR >= 2 && GRA_Tip_Pos == 2)) {  // set speed to current speed
@@ -469,10 +468,9 @@ void TIM3_IRQ_Handler(void) {
       ACA_V_Wunsch = ACA_V_Wunsch + (1);
     }
     engagementCounter = 1;
-    ACS_Sta_ADR = 1;                        //ADR Status (1 active)
-    ACS_FreigSollB = 1;                     //Activation of ACS_Sollbeschl (1 allowed)
-    ACS_Sollbeschl = 1444;                  //Accel request = 0, 1444 * 0.005 = 7.22 which is the signal offset
-    ACA_StaACC = 3;                         //ACC Status in cluster (3 ACC Active)
+    ACS_Sta_ADR = 1;                    //ADR Status (1 active)
+    ACS_FreigSollB = 1;                 //Activation of ACS_Sollbeschl (1 allowed)
+    ACA_StaACC = 3;                     //ACC Status in cluster (3 ACC Active)
   }
   if (GRA_Lever_Pos >= 1 || MO2_BTS) {  //This turns off ACC control | 3POS lever OR brake pedal
     if (GRA_Lever_Pos == 1) {           //Resets the setpoint speed when 3 position switch is flicked into toggle off
@@ -484,10 +482,22 @@ void TIM3_IRQ_Handler(void) {
       ACS_Sta_ADR = 2;              //ADR Status (2 passive)
     }
     ACS_FreigSollB = 0;             //Activation of ACS_Sollbeschl (0 not allowed)
-    ACS_Sollbeschl = 2046;          //ACC isn't active, no desired (de)accel
   }
   if (MO3_Pedalwert > 0 && (ACA_StaACC == 3 || ACA_StaACC == 4)) {
     ACA_StaACC = 4; // This sets ACA_StaACC to 4, ACC in background as driver is overriding it
+  }
+  if (ACS_FreigSollB && ACA_StaACC == 3) {             //ACC active, accel! No decel control (CC emulation)
+    int wheelSpeed = ((int)((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4)) & 0xFFFFFFFFFFFFFFF;
+    int setpointSpeed = ACA_V_Wunsch;
+    if ((wheelSpeed - setpointSpeed) <= -16) {
+      ACS_Sollbeschl = 1644;      // more than 10mph below target, full accel
+    } else if (((wheelSpeed - setpointSpeed) >= -1) && ((wheelSpeed - setpointSpeed) <= 1)) {
+      ACS_Sollbeschl = 1444;      // 2 KPH hysteresis | 0 accel
+    } else {
+      ACS_Sollbeschl = (1444 + ((setpointSpeed - wheelSpeed) * 12.5)); // up to 1 M/S^2 of accel when 10mph behind target speed
+    }
+  } else {
+    ACS_Sollbeschl = 2046;          //ACC isn't active, no desired (de)accel
   }
 
   // inject messages onto ext can into gateway/OP relay
