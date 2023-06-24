@@ -486,18 +486,23 @@ void TIM3_IRQ_Handler(void) {
   if (MO3_Pedalwert > 0 && (ACA_StaACC == 3 || ACA_StaACC == 4)) {
     ACA_StaACC = 4; // This sets ACA_StaACC to 4, ACC in background as driver is overriding it
   }
-  if (ACS_FreigSollB && ACA_StaACC == 3) {             //ACC active, accel! No decel control (CC emulation)
+      //ACC active, (de)accel control (CC emulation)
+  if (ACS_FreigSollB && ACA_StaACC == 3) {    //if radar accel wish is allowed / plausible
     int wheelSpeed = ((int)((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4)) & 0xFFFFFFFFFFFFFFF;
     int setpointSpeed = ACA_V_Wunsch;
     if ((wheelSpeed - setpointSpeed) <= -16) {
       ACS_Sollbeschl = 1644;      // more than 10mph below target, full accel
+    } else if ((wheelSpeed - setpointSpeed) >= 16) {
+      ACS_Sollbeschl = 1344;      // more than 10mph above target, full deccel
     } else if (((wheelSpeed - setpointSpeed) >= -1) && ((wheelSpeed - setpointSpeed) <= 1)) {
       ACS_Sollbeschl = 1444;      // 2 KPH hysteresis | 0 accel
-    } else {
+    } else if ((wheelSpeed - setpointSpeed) < -1) {
       ACS_Sollbeschl = (1444 + ((setpointSpeed - wheelSpeed) * 12.5)); // up to 1 M/S^2 of accel when 10mph behind target speed
+    } else {
+      ACS_Sollbeschl = (1444 - ((wheelSpeed - setpointSpeed) * 10));   // up to 0.5 M/S^2 of deccel when 10mph above target speed
     }
   } else {
-    ACS_Sollbeschl = 2046;          //ACC isn't active, no desired (de)accel
+    ACS_Sollbeschl = 2046;        //ACC isn't active, no desired (de)accel
   }
 
   // inject messages onto ext can into gateway/OP relay
