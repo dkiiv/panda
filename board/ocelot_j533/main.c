@@ -252,16 +252,13 @@ uint8_t  ACA_gemZeitl = 0;         //Average follow distance (0 No lead / 1-15 A
 
 #define mMotor_2 0x288
 #define mMotor_3 0x380
-#define mBremse_3 0x4A0
+#define mBremse_1 0x1A0
 #define mACC_GRA_Anziege 0x56a
 #define mACC_System 0x368
   //Brake Pressed
 bool MO2_BTS = 0;
-  //Wheel speed sensors
-uint16_t BR3_Rad_kmh_VL = 0;
-uint16_t BR3_Rad_kmh_VR = 0;
-uint16_t BR3_Rad_kmh_HL = 0;
-uint16_t BR3_Rad_kmh_HR = 0;
+  //Vehicle Speed
+uint16_t BR1_Rad_kmh = 0;
   //Pedal position
 uint8_t MO3_Pedalwert = 0;
 
@@ -360,14 +357,12 @@ void CAN2_RX0_IRQ_Handler(void) {
         }
         MO3_Pedalwert = (int)((dat[2] * 0.04) / 100);
         break;
-      case mBremse_3: // msg containing wheel speed data
+      case mBremse_1: // msg containing wheel speed data
         for (int i=0; i<8; i++) {
           dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
         }
-        BR3_Rad_kmh_VL = ((dat[0] >> 1) | dat[1]);
-        BR3_Rad_kmh_VR = ((dat[2] >> 1) | dat[3]);
-        BR3_Rad_kmh_HL = ((dat[4] >> 1) | dat[5]);
-        BR3_Rad_kmh_HR = ((dat[6] >> 1) | dat[7]);
+        BR1_Rad_kmh = ((dat[2] << 8) | dat[3]);
+        BR1_Rad_kmh = BR1_Rad_kmh * 0.01; // scale speed
         break;
       default:
         // FWD as-is
@@ -459,7 +454,7 @@ void TIM3_IRQ_Handler(void) {
 
   if (GRA_Tip_Pos >= 1) {
     if (ACA_V_Wunsch == 255 || (ACS_Sta_ADR >= 2 && GRA_Tip_Pos == 2)) {  // set speed to current speed
-      ACA_V_Wunsch = ((int)((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4)) & 0xFFFFFFFFFFFFFFF;
+      ACA_V_Wunsch = ((int)BR1_Rad_kmh) & 0xFFFFFFFFFFFFFFF;
     } else if (GRA_Tip_Pos == 2) {                                        // decrease setpoint by 1
       ACA_V_Wunsch = ACA_V_Wunsch - (1);
     } else if (GRA_Tip_Pos == 1 && ACS_Sta_ADR >= 2) {                    // resume
@@ -488,7 +483,7 @@ void TIM3_IRQ_Handler(void) {
   }
       //ACC active, (de)accel control (CC emulation)
   if (ACS_FreigSollB && ACA_StaACC == 3) {    //if radar accel wish is allowed / plausible
-    int wheelSpeed = ((int)((BR3_Rad_kmh_VL + BR3_Rad_kmh_VR + BR3_Rad_kmh_HL + BR3_Rad_kmh_HR) / 4)) & 0xFFFFFFFFFFFFFFF;
+    int wheelSpeed = ((int)BR1_Rad_kmh) & 0xFFFFFFFFFFFFFFF;
     int setpointSpeed = ACA_V_Wunsch;
     if ((wheelSpeed - setpointSpeed) <= -16) {
       ACS_Sollbeschl = 1644;      // more than 10mph below target, full accel
