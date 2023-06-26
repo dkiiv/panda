@@ -488,13 +488,13 @@ void TIM3_IRQ_Handler(void) {
     if ((wheelSpeed - setpointSpeed) <= -16) {
       ACS_Sollbeschl = 1644;      // more than 10mph below target, full accel
     } else if ((wheelSpeed - setpointSpeed) >= 16) {
-      ACS_Sollbeschl = 1344;      // more than 10mph above target, full deccel
-    } else if (((wheelSpeed - setpointSpeed) >= -1) && ((wheelSpeed - setpointSpeed) <= 1)) {
-      ACS_Sollbeschl = 1444;      // 2 KPH hysteresis | 0 accel
-    } else if ((wheelSpeed - setpointSpeed) < -1) {
-      ACS_Sollbeschl = (1444 + ((setpointSpeed - wheelSpeed) * 12.5)); // up to 1 M/S^2 of accel when 10mph behind target speed
+      ACS_Sollbeschl = 1344;      // more than 10mph above target, full decel
+    } else if ((wheelSpeed - setpointSpeed) <= -1) {
+      ACS_Sollbeschl = (1444 + ((setpointSpeed - wheelSpeed) * 12.5)); // up to 1.0 M/S^2 of accel when 10mph behind target speed
+    } else if ((wheelSpeed - setpointSpeed) >= 1) {
+      ACS_Sollbeschl = (1444 - ((wheelSpeed - setpointSpeed) * 10));   // up to 0.5 M/S^2 of decel when 10mph above target speed
     } else {
-      ACS_Sollbeschl = (1444 - ((wheelSpeed - setpointSpeed) * 10));   // up to 0.5 M/S^2 of deccel when 10mph above target speed
+      ACS_Sollbeschl = 1444;      // 2 KPH hysteresis | 0 accel
     }
   } else {
     ACS_Sollbeschl = 2046;        //ACC isn't active, no desired (de)accel
