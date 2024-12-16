@@ -31,12 +31,18 @@ const LongitudinalLimits VOLKSWAGEN_PQ_LONG_LIMITS = {
 #define MSG_ACC_GRA_ANZEIGE     0x56A   // TX by OP, ACC HUD
 #define MSG_LDW_1               0x5BE   // TX by OP, Lane line recognition and text alerts
 #define MSG_EPB_1               0x5C0   // TX by OP, EPB/ECD control
+#define MSG_BREMSE_8            0x1AC   // TX by OP, spoofing radar
+#define MSG_BREMSE_11           0x5B7   // TX by OP, spoofing radar
 
 // Transmit of GRA_Neu is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
 const CanMsg VOLKSWAGEN_PQ_STOCK_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_LDW_1, 0, 8},
-                                              {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}};
+                                              {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_ACC_GRA_ANZEIGE, 0, 8},
+                                              {MSG_ACC_SYSTEM, 0, 8}, {MSG_MOTOR_2, 2, 8}, {MSG_EPB_1, 1, 8},
+                                              {MSG_EPB_1, 2, 8}, {MSG_BREMSE_8, 2, 8}, {MSG_BREMSE_11, 2, 8}};
 const CanMsg VOLKSWAGEN_PQ_LONG_TX_MSGS[] =  {{MSG_HCA_1, 0, 5}, {MSG_LDW_1, 0, 8},
-                                              {MSG_ACC_SYSTEM, 0, 8}, {MSG_ACC_GRA_ANZEIGE, 0, 8}, {MSG_EPB_1, 1, 8}};
+                                              {MSG_ACC_SYSTEM, 0, 8}, {MSG_ACC_GRA_ANZEIGE, 0, 8},
+                                              {MSG_MOTOR_2, 2, 8}, {MSG_EPB_1, 1, 8}, {MSG_EPB_1, 2, 8},
+                                              {MSG_BREMSE_8, 2, 8}, {MSG_BREMSE_11, 2, 8}};
 
 AddrCheckStruct volkswagen_pq_addr_checks[] = {
   {.msg = {{MSG_LENKHILFE_3, 0, 6, .check_checksum = true, .max_counter = 15U, .expected_timestep = 10000U}, { 0 }, { 0 }}},
@@ -205,7 +211,7 @@ static int volkswagen_pq_tx_hook(CANPacket_t *to_send) {
 
   // Safety check for acceleration commands
   // To avoid floating point math, scale upward and compare to pre-scaled safety m/s2 boundaries
-  if (addr == MSG_ACC_SYSTEM) {
+  if ((addr == MSG_ACC_SYSTEM) && volkswagen_longitudinal) {
     // Signal: ACC_System.ACS_Sollbeschl (acceleration in m/s2, scale 0.005, offset -7.22)
     int desired_accel = ((((GET_BYTE(to_send, 4) & 0x7U) << 8) | GET_BYTE(to_send, 3)) * 5U) - 7220U;
 
@@ -216,7 +222,7 @@ static int volkswagen_pq_tx_hook(CANPacket_t *to_send) {
 
   // FORCE CANCEL: ensuring that only the cancel button press is sent when controls are off.
   // This avoids unintended engagements while still allowing resume spam
-  if ((addr == MSG_GRA_NEU) && !controls_allowed) {
+  if (volkswagen_longitudinal && ((addr == MSG_GRA_NEU)) && !controls_allowed) {
     // Signal: GRA_Neu.GRA_Neu_Setzen
     // Signal: GRA_Neu.GRA_Neu_Recall
     if (GET_BIT(to_send, 16U) || GET_BIT(to_send, 17U)) {
@@ -233,11 +239,16 @@ static int volkswagen_pq_fwd_hook(int bus_num, int addr) {
 
   switch (bus_num) {
     case 0:
-      // Forward all traffic from the Extended CAN onward
-      bus_fwd = 2;
+      if ((addr == MSG_MOTOR_2) || (addr == MSG_BREMSE_8) || (addr == MSG_BREMSE_11) || (addr == MSG_EPB_1) || (!volkswagen_longitudinal && (addr == MSG_GRA_NEU))) {
+        // openpilot takes over signals OEM-radar listens to
+        bus_fwd = -1;
+      } else {
+        // Forward all traffic from the Extended CAN onward
+        bus_fwd = 2;
+      }
       break;
     case 2:
-      if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1)) {
+      if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1) || (addr == MSG_ACC_SYSTEM) || (addr == MSG_ACC_GRA_ANZEIGE)) {
         // openpilot takes over LKAS steering control and related HUD messages from the camera
         bus_fwd = -1;
       } else if (volkswagen_longitudinal && ((addr == MSG_ACC_SYSTEM) || (addr == MSG_ACC_GRA_ANZEIGE))) {
