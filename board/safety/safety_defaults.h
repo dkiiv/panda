@@ -47,14 +47,14 @@ typedef struct {
   bool brakePressed;
 } CarState;
 
-typedef struct {            //  Definition           offset  scale      range      sB sb  len
-  uint8_t EP_COUNTER;       //  4 position counter      0      1        0..15       1:[0 | 4]
-  uint8_t EP_brakeReq;      //  ECD brake request    -7.968    1   -7.968..4.224    4:[0 | 8]
-  uint8_t EP_brakeEnable;   //  Enable brakeReq         0      1        0..1        5:[1 | 1]
-  uint8_t EP_epbAvailable;  //  EPB is available        0      1        0..1        5:[3 | 1]
-  uint8_t EP_brakeLights;   //  Enable brake lights     0      1        0..1        5:[6 | 1]
-  uint8_t EP_HydHalten;     //  ECD standstill          0      1        0..1        7:[0 | 1]
-  uint8_t EP_CHECKSUM;      //  XOR checksum            0      1        0..255      8:[0 | 8]
+typedef struct {               //  Definition           offset  scale      range      sB sb  len
+  uint8_t EP1_Zaehler;         //  4 position counter      0      1        0..15       1:[0 | 4]
+  uint8_t EP1_Verzoegerung;    //  ECD brake request    -7.968    1   -7.968..4.224    4:[0 | 8]
+  uint8_t EP1_Freigabe_Ver;    //  Enable brakeReq         0      1        0..1        5:[1 | 1]
+  uint8_t EP1_AutoHold_aktiv;  //  EPB is available        0      1        0..1        5:[3 | 1]
+  uint8_t EP1_Bremslicht;      //  Enable brake lights     0      1        0..1        5:[6 | 1]
+  uint8_t EP_HydHalten;        //  ECD standstill          0      1        0..1        7:[0 | 1]
+  uint8_t EP1_Checksum;        //  XOR checksum            0      1        0..255      8:[0 | 8]
 } EPB_msg;
 
 double limit_jerk(double accel, double prev_accel, double max_jerk, double dt) {
