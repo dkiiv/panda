@@ -53,7 +53,7 @@ typedef struct {               //  Definition           offset  scale      range
   uint8_t EP1_Freigabe_Ver;    //  Enable brakeReq         0      1        0..1        5:[1 | 1]
   uint8_t EP1_AutoHold_aktiv;  //  EPB is available        0      1        0..1        5:[3 | 1]
   uint8_t EP1_Bremslicht;      //  Enable brake lights     0      1        0..1        5:[6 | 1]
-  uint8_t EP_HydHalten;        //  ECD standstill          0      1        0..1        7:[0 | 1]
+  uint8_t EP1_HydHalten;       //  ECD standstill          0      1        0..1        7:[0 | 1]
   uint8_t EP1_Checksum;        //  XOR checksum            0      1        0..255      8:[0 | 8]
 } EPB_msg;
 
