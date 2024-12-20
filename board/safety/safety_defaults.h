@@ -27,12 +27,6 @@ double vEgo;
 
 typedef struct {
   bool EPB_enable;
-  double EPB_brake;
-  bool EPB_active;
-} EPB_Handler_Result;
-
-typedef struct {
-  bool EPB_enable;
   bool EPB_enable_prev;
   bool EPB_enable_2old;
   bool ACC_anz_blind;
@@ -53,7 +47,7 @@ typedef struct {               //  Definition           offset  scale      range
   uint8_t EP1_Freigabe_Ver;    //  Enable brakeReq         0      1        0..1        5:[1 | 1]
   uint8_t EP1_AutoHold_aktiv;  //  EPB is available        0      1        0..1        5:[3 | 1]
   uint8_t EP1_Bremslicht;      //  Enable brake lights     0      1        0..1        5:[6 | 1]
-  uint8_t EP1_HydHalten;       //  ECD standstill          0      1        0..1        7:[0 | 1]
+  uint8_t EP1_HydrHalten;      //  ECD standstill          0      1        0..1        7:[0 | 1]
   uint8_t EP1_Checksum;        //  XOR checksum            0      1        0..255      8:[0 | 8]
 } EPB_msg;
 
@@ -65,7 +59,7 @@ double limit_jerk(double accel, double prev_accel, double max_jerk, double dt) {
     return prev_accel + delta_accel;
 }
 
-EPB_Handler_Result EPB_handler(CarState CS, int ACS_Sta_ADR, double ACS_Sollbeschl, double vEgo, bool stopping, EPB_State *state) {
+void EPB_handler(CarState CS, int ACS_Sta_ADR, double ACS_Sollbeschl, double vEgo, bool stopping, EPB_State *state) {
     if (ACS_Sta_ADR == 1 && ACS_Sollbeschl < 0 && vEgo <= (18 * KPH_TO_MS)) {
             // First frame of EPB entry
         if (!state->EPB_enable) {
@@ -108,13 +102,6 @@ EPB_Handler_Result EPB_handler(CarState CS, int ACS_Sta_ADR, double ACS_Sollbesc
     state->EPB_active = (state->EPB_enable_2old && !state->EPB_enable) || state->EPB_enable;
     state->EPB_enable_2old = state->EPB_enable_prev;
     state->EPB_enable_prev = state->EPB_enable;
-
-    EPB_Handler_Result result = {
-        .EPB_enable = state->EPB_enable,
-        .EPB_brake = state->EPB_brake,
-        .EPB_active = state->EPB_active,
-    };
-    return result;
 }
 
 void default_rx_hook(const CANPacket_t *to_push) {
@@ -140,8 +127,8 @@ static int default_fwd_hook(CANPacket_t *to_push) {
 
   switch (bus_num) {
     case 0:
-      if (addr == MSG_MOTOR_2) filter_motor2(to_push, EPB_Handler_Result.EPB_active);
-      if (addr == MSG_BREMSE_8) filter_bremse8(to_push, EPB_Handler_Result.EPB_active);
+      if (addr == MSG_MOTOR_2) filter_motor2(to_push, EPB_State.EPB_active);
+      if (addr == MSG_BREMSE_8) filter_bremse8(to_push, EPB_State.EPB_active);
       if (addr == MSG_BREMSE_11) filter_bremse11(to_push, stopped);
       if (addr == MSG_EPB_1) filter_epb1(to_push, stopped);
       if (addr == MSG_GRA_NEU) {
@@ -151,7 +138,7 @@ static int default_fwd_hook(CANPacket_t *to_push) {
       bus_fwd = 2;
       break;
     case 2:
-      if (addr == MSG_ACC_SYSTEM) filter_ACC_System(to_push, EPB_Handler_Result.EPB_active);
+      if (addr == MSG_ACC_SYSTEM) filter_ACC_System(to_push, EPB_State.EPB_active);
       if (addr == MSG_ACC_ANZEIGE) filter_ACC_Anzeige(to_push, EPB_State.ACC_anz_blind);
       bus_fwd = 0;
       break;
