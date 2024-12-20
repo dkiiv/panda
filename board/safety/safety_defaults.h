@@ -19,6 +19,8 @@
 
 bool stopping = 0;
 bool stopped = 0;
+bool resume = 0;
+int frame = 0;
 bool ACS_Anhaltewunsch;
 int ACS_Sta_ADR;
 double vEgo;
@@ -117,25 +119,30 @@ static safety_config nooutput_init(uint16_t param) {
 }
 
 static bool nooutput_tx_hook(const CANPacket_t *to_send) {
-  UNUSED(to_send);  // TODO: put create_epb_control here! need to figure out how to make a message and then send it
-  return false;
+  UNUSED(to_send);
+  return true;
 }
 
-static int default_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
+static int default_fwd_hook(CANPacket_t *to_push) {
+  const int bus = GET_BUS(to_push);
+  int addr = GET_ADDR(to_push);
   int bus_fwd = -1;
-  int addr = GET_ADDR(to_fwd);
+
   switch (bus_num) {
     case 0:
-      if (addr == MSG_MOTOR_2) filter_motor2(to_fwd);
-      if (addr == MSG_BREMSE_8) filter_bremse8(to_fwd);
-      if (addr == MSG_BREMSE_11) filter_bremse11(to_fwd);
-      if (addr == MSG_GRA_NEU) filter_GRA_Neu(to_fwd);
-      if (addr == MSG_EPB_1) filter_epb1(to_fwd);
+      if (addr == MSG_MOTOR_2) filter_motor2(to_push, EPB_Handler_Result.EPB_active);
+      if (addr == MSG_BREMSE_8) filter_bremse8(to_push, EPB_Handler_Result.EPB_active);
+      if (addr == MSG_BREMSE_11) filter_bremse11(to_push, stopped);
+      if (addr == MSG_EPB_1) filter_epb1(to_push, stopped);
+      if (addr == MSG_GRA_NEU) {
+        resume = stopped && (frame % 100 < 50);
+        filter_GRA_Neu(to_push, resume);
+      };
       bus_fwd = 2;
       break;
     case 2:
-      if (addr == MSG_ACC_SYSTEM) filter_ACC_System(to_fwd);
-      if (addr == MSG_ACC_ANZEIGE) filter_ACC_Anzeige(to_fwd);
+      if (addr == MSG_ACC_SYSTEM) filter_ACC_System(to_push, EPB_Handler_Result.EPB_active);
+      if (addr == MSG_ACC_ANZEIGE) filter_ACC_Anzeige(to_push, EPB_State.ACC_anz_blind);
       bus_fwd = 0;
       break;
     default:

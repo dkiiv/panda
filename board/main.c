@@ -124,6 +124,8 @@ bool is_car_safety_mode(uint16_t mode) {
          (mode != SAFETY_ELM327);
 }
 
+// TODO: put EPB_1 created CAN msg here!
+
 // ***************************** main code *****************************
 
 // cppcheck-suppress unusedFunction ; used in headers not included in cppcheck
