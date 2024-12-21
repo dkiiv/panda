@@ -124,7 +124,29 @@ bool is_car_safety_mode(uint16_t mode) {
          (mode != SAFETY_ELM327);
 }
 
-// TODO: put EPB_1 created CAN msg here!
+// ***************************** eEPB msg tx *****************************
+
+void send_epb_msg(const EPB_msg *msg, const int bus_number) {
+  uint8_t dat[8];
+  dat[0] = 0x00;
+  dat[1] = 0x00;
+  dat[2] = 0x00;
+  dat[3] = 0x00;
+  dat[4] = 0x00;
+  dat[5] = 0x00;
+  dat[6] = 0x00;
+  dat[7] = 0x00;
+
+  CANPacket_t to_send;
+  to_send.extended = 1;
+  to_send.addr = 0x5C0;
+  to_send.bus = bus_number;
+  to_send.data_len_code = sizeof(dat);
+  memcpy(to_send.data, dat, sizeof(dat));
+
+  can_set_checksum(&to_send);
+  can_send(&to_send, bus_number, true);
+};
 
 // ***************************** main code *****************************
 
