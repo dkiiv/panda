@@ -135,7 +135,7 @@ void send_epb_msg(const EPB_msg *msg, const int bus_number) {
   dat[4] = 0x00;
   dat[5] = 0x00;
   dat[6] = 0x00;
-  dat[7] = 0x00;
+  dat[7] = (msg->EP1_Checksum);  // Checksum byte, XOR over other dat's
 
   CANPacket_t to_send;
   to_send.extended = 1;
@@ -255,45 +255,6 @@ static void tick_handler(void) {
         }
       } else {
         heartbeat_engaged_mismatches = 0U;
-      }
-
-      if (!heartbeat_disabled) {
-        // if the heartbeat has been gone for a while, go to SILENT safety mode and enter power save
-        if (heartbeat_counter >= (check_started() ? HEARTBEAT_IGNITION_CNT_ON : HEARTBEAT_IGNITION_CNT_OFF)) {
-          print("device hasn't sent a heartbeat for 0x");
-          puth(heartbeat_counter);
-          print(" seconds. Safety is set to SILENT mode.\n");
-
-          if (controls_allowed_countdown > 0U) {
-            siren_countdown = 3U;
-            controls_allowed_countdown = 0U;
-          }
-
-          // set flag to indicate the heartbeat was lost
-          if (is_car_safety_mode(current_safety_mode)) {
-            heartbeat_lost = true;
-          }
-
-          // clear heartbeat engaged state
-          heartbeat_engaged = false;
-
-          if (current_safety_mode != SAFETY_SILENT) {
-            set_safety_mode(SAFETY_SILENT, 0U);
-          }
-
-          if (power_save_status != POWER_SAVE_STATUS_ENABLED) {
-            set_power_save_state(POWER_SAVE_STATUS_ENABLED);
-          }
-
-          // Also disable IR when the heartbeat goes missing
-          current_board->set_ir_power(0U);
-
-          // Run fan when device is up, but not talking to us
-          // * bootloader enables the SOM GPIO on boot
-          // * fallback to USB enumerated where supported
-          bool enabled = usb_enumerated || current_board->read_som_gpio();
-          fan_set_power(enabled ? 50U : 0U);
-        }
       }
 
       // check registers

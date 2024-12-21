@@ -17,13 +17,25 @@
 #define MSG_BREMSE_1       0x1A0  // vehicle speed
 #define MSG_BREMSE_5       0x4A8  // brake pedal
 
-bool stopping = 0;
-bool stopped = 0;
-bool resume = 0;
 int frame = 0;
-bool ACS_Anhaltewunsch;
-int ACS_Sta_ADR;
-double vEgo;
+
+typedef struct {
+  bool stopping;
+  bool stopped;
+  bool resume;
+} Device_State;
+
+typedef struct {
+  bool Anhaltewunsch;
+  int Sta_ADR;
+  double Sollbeschl;
+} ACC_State;
+
+typedef struct {
+  bool gasPressed;
+  bool brakePressed;
+  double vEgo;
+} CarState;
 
 typedef struct {
   bool EPB_enable;
@@ -32,14 +44,10 @@ typedef struct {
   bool ACC_anz_blind;
   int EPB_counter;
   int ACC_anz_blind_counter;
+  int Zaehler;  // make incrementor
   double EPB_brake;
   double EPB_brake_last;
 } EPB_State;
-
-typedef struct {
-  bool gasPressed;
-  bool brakePressed;
-} CarState;
 
 typedef struct {               //  Definition           offset  scale      range      sB sb  len
   uint8_t EP1_Zaehler;         //  4 position counter      0      1        0..15       1:[0 | 4]
@@ -51,6 +59,8 @@ typedef struct {               //  Definition           offset  scale      range
   uint8_t EP1_Checksum;        //  XOR checksum            0      1        0..255      8:[0 | 8]
 } EPB_msg;
 
+void send_epb_msg(const EPB_msg *msg, const int bus_number);
+
 double limit_jerk(double accel, double prev_accel, double max_jerk, double dt) {
     double max_delta_accel = max_jerk * dt;
     double delta_accel = (accel - prev_accel) > max_delta_accel ? max_delta_accel :
@@ -59,49 +69,54 @@ double limit_jerk(double accel, double prev_accel, double max_jerk, double dt) {
     return prev_accel + delta_accel;
 }
 
-void EPB_handler(CarState CS, int ACS_Sta_ADR, double ACS_Sollbeschl, double vEgo, bool stopping, EPB_State *state) {
-    if (ACS_Sta_ADR == 1 && ACS_Sollbeschl < 0 && vEgo <= (18 * KPH_TO_MS)) {
+void EPB_handler() {
+  Device_State DS;
+  CarState CS;
+  ACC_State ACS;
+  EPB_State state;
+
+    if (ACS.Sta_ADR == 1 && ACS.Sollbeschl < 0 && CS.vEgo <= (18 * KPH_TO_MS)) {
             // First frame of EPB entry
-        if (!state->EPB_enable) {
-            state->EPB_counter = 0;
-            state->EPB_brake = 0;
-            state->EPB_enable = true;
-            state->EPB_brake_last = ACS_Sollbeschl;
+        if (!state.EPB_enable) {
+            state.EPB_counter = 0;
+            state.EPB_brake = 0;
+            state.EPB_enable = true;
+            state.EPB_brake_last = ACS.Sollbeschl;
         } else {
-            state->EPB_brake = stopping ? limit_jerk(-4.0, state->EPB_brake_last, 0.7, 0.02) : ACS_Sollbeschl;
-            state->EPB_brake_last = state->EPB_brake;
+            state.EPB_brake = DS.stopping ? limit_jerk(-4.0, state.EPB_brake_last, 0.7, 0.02) : ACS.Sollbeschl;
+            state.EPB_brake_last = state.EPB_brake;
         }
-        state->EPB_counter++;
+        state.EPB_counter++;
     } else {
-        if (state->EPB_enable && state->EPB_counter < 10) {
-            state->EPB_counter++;
+        if (state.EPB_enable && state.EPB_counter < 10) {
+            state.EPB_counter++;
         } else {
-            state->EPB_brake = 0;
-            state->EPB_enable = false;
+            state.EPB_brake = 0;
+            state.EPB_enable = false;
         }
     }
 
     if (CS.gasPressed || CS.brakePressed) {
-        if (state->EPB_enable) {
-            state->ACC_anz_blind = true;
+        if (state.EPB_enable) {
+            state.ACC_anz_blind = true;
         }
-        state->EPB_brake = 0;
-        state->EPB_enable = false;
-        state->EPB_enable_prev = false;
-        state->EPB_enable_2old = false;
+        state.EPB_brake = 0;
+        state.EPB_enable = false;
+        state.EPB_enable_prev = false;
+        state.EPB_enable_2old = false;
     }
 
-    if (state->ACC_anz_blind && state->ACC_anz_blind_counter < 150) {
-        state->ACC_anz_blind_counter++;
+    if (state.ACC_anz_blind && state.ACC_anz_blind_counter < 150) {
+        state.ACC_anz_blind_counter++;
     } else {
-        state->ACC_anz_blind = false;
-        state->ACC_anz_blind_counter = 0;
+        state.ACC_anz_blind = false;
+        state.ACC_anz_blind_counter = 0;
     }
 
     // Update EPB historical states and calculate EPB_active
-    state->EPB_active = (state->EPB_enable_2old && !state->EPB_enable) || state->EPB_enable;
-    state->EPB_enable_2old = state->EPB_enable_prev;
-    state->EPB_enable_prev = state->EPB_enable;
+    state.EPB_active = (state.EPB_enable_2old && !state.EPB_enable) || state.EPB_enable;
+    state.EPB_enable_2old = state.EPB_enable_prev;
+    state.EPB_enable_prev = state.EPB_enable;
 }
 
 void default_rx_hook(const CANPacket_t *to_push) {
@@ -127,19 +142,24 @@ static int default_fwd_hook(CANPacket_t *to_push) {
 
   switch (bus_num) {
     case 0:
-      if (addr == MSG_MOTOR_2) filter_motor2(to_push, EPB_State.EPB_active);
-      if (addr == MSG_BREMSE_8) filter_bremse8(to_push, EPB_State.EPB_active);
-      if (addr == MSG_BREMSE_11) filter_bremse11(to_push, stopped);
-      if (addr == MSG_EPB_1) filter_epb1(to_push, stopped);
+      if (addr == MSG_MOTOR_2) filter_motor2(&EPB_State);
+      if (addr == MSG_BREMSE_8) filter_bremse8(&EPB_State);
+      if (addr == MSG_BREMSE_11) filter_bremse11(stopped);  //TODO, fix this variable to function
+      if (addr == MSG_EPB_1) filter_epb1(stopped);  //TODO, fix this variable to function
       if (addr == MSG_GRA_NEU) {
-        resume = stopped && (frame % 100 < 50);
-        filter_GRA_Neu(to_push, resume);
+        resume = stopped && (frame % 100 < 50);  // TODO: refactor figure from based on 100hz to based on car-msg frequency
+        filter_GRA_Neu(resume);
       };
       bus_fwd = 2;
       break;
     case 2:
-      if (addr == MSG_ACC_SYSTEM) filter_ACC_System(to_push, EPB_State.EPB_active);
-      if (addr == MSG_ACC_ANZEIGE) filter_ACC_Anzeige(to_push, EPB_State.ACC_anz_blind);
+      if (addr == MSG_ACC_SYSTEM) {
+        parse_ACC_System_state(&ACC_State);
+        EPB_handler();
+        create_epb_control(&EPB_msg, &EPB_State);
+        filter_ACC_System(&EPB_State);
+      };
+      if (addr == MSG_ACC_ANZEIGE) filter_ACC_Anzeige(&EPB_State);
       bus_fwd = 0;
       break;
     default:
