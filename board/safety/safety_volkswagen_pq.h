@@ -6,16 +6,25 @@ const int VOLKSWAGEN_PQ_MAX_RATE_DOWN = 10;             // 5.0 Nm/s RoC limit (E
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_ALLOWANCE = 80;
 const int VOLKSWAGEN_PQ_DRIVER_TORQUE_FACTOR = 3;
 
-#define MSG_LENKHILFE_3 0x0D0   // RX from EPS, for steering angle and driver steering torque
-#define MSG_HCA_1       0x0D2   // TX by OP, Heading Control Assist steering torque
-#define MSG_MOTOR_2     0x288   // RX from ECU, for CC state and brake switch state
-#define MSG_MOTOR_3     0x380   // RX from ECU, for driver throttle input
-#define MSG_GRA_NEU     0x38A   // TX by OP, ACC control buttons for cancel/resume
-#define MSG_BREMSE_1    0x1A0   // RX from ABS, for ego speed
-#define MSG_LDW_1       0x5BE   // TX by OP, Lane line recognition and text alerts
+#define MSG_LENKHILFE_3         0x0D0   // RX from EPS, for steering angle and driver steering torque
+#define MSG_HCA_1               0x0D2   // TX by OP, Heading Control Assist steering torque
+#define MSG_BREMSE_1            0x1A0   // RX from ABS, for ego speed
+#define MSG_MOTOR_2             0x288   // RX from ECU, for CC state and brake switch state
+#define MSG_ACC_SYSTEM          0x368   // TX by OP, longitudinal acceleration controls
+#define MSG_MOTOR_3             0x380   // RX from ECU, for driver throttle input
+#define MSG_GRA_NEU             0x38A   // TX by OP, ACC control buttons for cancel/resume
+#define MSG_MOTOR_5             0x480   // RX from ECU, for ACC main switch state
+#define MSG_ACC_GRA_ANZEIGE     0x56A   // TX by OP, ACC HUD
+#define MSG_LDW_1               0x5BE   // TX by OP, Lane line recognition and text alerts
+#define MSG_EPB_1               0x5C0   // TX by OP, EPB/ECD control
+#define MSG_BREMSE_8            0x1AC   // TX by OP, spoofing radar
+#define MSG_BREMSE_11           0x5B7   // TX by OP, spoofing radar
 
 // Transmit of GRA_Neu is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
-const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_LDW_1, 0, 8}};
+const CanMsg VOLKSWAGEN_PQ_TX_MSGS[] = {{MSG_HCA_1, 0, 5}, {MSG_LDW_1, 0, 8},
+                                        {MSG_GRA_NEU, 0, 4}, {MSG_GRA_NEU, 2, 4}, {MSG_ACC_GRA_ANZEIGE, 0, 8},
+                                        {MSG_ACC_SYSTEM, 0, 8}, {MSG_MOTOR_2, 2, 8}, {MSG_EPB_1, 1, 8},
+                                        {MSG_EPB_1, 2, 8}, {MSG_BREMSE_8, 2, 8}, {MSG_BREMSE_11, 2, 8}};
 #define VOLKSWAGEN_PQ_TX_MSGS_LEN (sizeof(VOLKSWAGEN_PQ_TX_MSGS) / sizeof(VOLKSWAGEN_PQ_TX_MSGS[0]))
 
 AddrCheckStruct volkswagen_pq_addr_checks[] = {
@@ -174,15 +183,6 @@ static int volkswagen_pq_tx_hook(CANPacket_t *to_send) {
     }
   }
 
-  // FORCE CANCEL: ensuring that only the cancel button press is sent when controls are off.
-  // This avoids unintended engagements while still allowing resume spam
-  if ((addr == MSG_GRA_NEU) && !controls_allowed) {
-    // disallow resume and set: bits 16 and 17
-    if ((GET_BYTE(to_send, 2) & 0x3U) != 0U) {
-      tx = 0;
-    }
-  }
-
   // 1 allows the message through
   return tx;
 }
@@ -193,13 +193,20 @@ static int volkswagen_pq_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
 
   switch (bus_num) {
     case 0:
-      // Forward all traffic from the Extended CAN onward
-      bus_fwd = 2;
+      if ((addr == MSG_MOTOR_2) || (addr == MSG_BREMSE_8) || (addr == MSG_BREMSE_11) || (addr == MSG_EPB_1) || (!volkswagen_longitudinal && (addr == MSG_GRA_NEU))) {
+        // openpilot takes over signals OEM-radar listens to
+        bus_fwd = -1;
+      } else {
+        // Forward all traffic from the Extended CAN onward
+        bus_fwd = 2;
+      }
       break;
     case 2:
-      if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1)) {
-        // OP takes control of the Heading Control Assist and Lane Departure Warning messages from the camera
+      if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1) || (addr == MSG_ACC_SYSTEM) || (addr == MSG_ACC_GRA_ANZEIGE)) {
+        // openpilot takes over LKAS steering control and related HUD messages from the camera
         bus_fwd = -1;
+      } else if (volkswagen_longitudinal && ((addr == MSG_ACC_SYSTEM) || (addr == MSG_ACC_GRA_ANZEIGE))) {
+        // openpilot takes over acceleration/braking control and related HUD messages from the stock ACC radar
       } else {
         // Forward all remaining traffic from Extended CAN devices to J533 gateway
         bus_fwd = 0;
