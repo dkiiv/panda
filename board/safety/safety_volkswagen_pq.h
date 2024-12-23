@@ -193,7 +193,7 @@ static int volkswagen_pq_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
 
   switch (bus_num) {
     case 0:
-      if ((addr == MSG_MOTOR_2) || (addr == MSG_BREMSE_8) || (addr == MSG_BREMSE_11) || (addr == MSG_EPB_1) || (!volkswagen_longitudinal && (addr == MSG_GRA_NEU))) {
+      if ((addr == MSG_MOTOR_2) || (addr == MSG_BREMSE_8) || (addr == MSG_BREMSE_11) || (addr == MSG_EPB_1) || (addr == MSG_GRA_NEU)) {
         // openpilot takes over signals OEM-radar listens to
         bus_fwd = -1;
       } else {
@@ -205,8 +205,6 @@ static int volkswagen_pq_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
       if ((addr == MSG_HCA_1) || (addr == MSG_LDW_1) || (addr == MSG_ACC_SYSTEM) || (addr == MSG_ACC_GRA_ANZEIGE)) {
         // openpilot takes over LKAS steering control and related HUD messages from the camera
         bus_fwd = -1;
-      } else if (volkswagen_longitudinal && ((addr == MSG_ACC_SYSTEM) || (addr == MSG_ACC_GRA_ANZEIGE))) {
-        // openpilot takes over acceleration/braking control and related HUD messages from the stock ACC radar
       } else {
         // Forward all remaining traffic from Extended CAN devices to J533 gateway
         bus_fwd = 0;
