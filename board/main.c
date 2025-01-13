@@ -124,9 +124,21 @@ bool is_car_safety_mode(uint16_t mode) {
          (mode != SAFETY_ELM327);
 }
 
-// ***************************** eEPB msg tx *****************************
+//   Msg's to send to satisfy EPS
+// mBremse_1       - light status? + vehicle speed
+// mBremse_3       - individual wheel speed
+// mBremse_9       - PLA infos? + DSR status
+// mBSG_Last       - BCM battery info
+// mGate_Komf_1    - Gateway ignition + light status
+// mIdent          - VIN info
+// mKombi_1        - Ignition? + light status? + speed + handbrake
+// mKombi_3        - Diagnostic: odometer mileage
+// mMotor_1        - Diagnostic: engine RPM + throttle position
+// mMotor_10       - Steering assist ready to drive info
 
-void send_epb_msg(const EPB_msg *msg, const int bus_number) {
+// ***************************** eCar msg tx's *****************************
+
+void send_msg(const EPB_msg *msg, const int bus_number) {
   uint8_t dat[8];
   dat[0] = 0x00;
   dat[1] = 0x00;
@@ -135,12 +147,12 @@ void send_epb_msg(const EPB_msg *msg, const int bus_number) {
   dat[4] = 0x00;
   dat[5] = 0x00;
   dat[6] = 0x00;
-  dat[7] = (msg->EP1_Checksum);  // Checksum byte, XOR over other dat's
+  dat[7] = 0x00;
 
   CANPacket_t to_send;
   to_send.extended = 1;
-  to_send.addr = 0x5C0;
-  to_send.bus = bus_number;
+  to_send.addr = 0x5C0;  // configure CAN ID here
+  to_send.bus = bus_number;  // configure panda bus ID here
   to_send.data_len_code = sizeof(dat);
   memcpy(to_send.data, dat, sizeof(dat));
 
