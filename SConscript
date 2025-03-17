@@ -180,7 +180,10 @@ with open("board/obj/cert.h", "w") as f:
   for cert in certs:
     f.write("\n".join(cert) + "\n")
 
-if not GetOption('escc'): # if we are building ESCC, we don't build anything else
+
+# if not GetOption('escc'):
+customModule = ['escc', 'eepb']
+if GetOption() not in customModule: # if we are building custom module code, we don't build anything else
   # panda fw
   SConscript('board/SConscript')
   
@@ -191,4 +194,7 @@ if not GetOption('escc'): # if we are building ESCC, we don't build anything els
   if GetOption('extras'):
     SConscript('tests/libpanda/SConscript')
 else:
-  SConscript('board/escc/SConscript')
+  if GetOption('escc'):
+    SConscript('board/escc/SConscript')
+  if GetOption('eepb'):
+    SConscript('board/eepb/SConscript')

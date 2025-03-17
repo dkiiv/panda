@@ -20,6 +20,10 @@ AddOption('--escc',
           action='store_true',
           help='build escc firmware')
 
+AddOption('--eepb',
+          action='store_true',
+          help='build eEPB firmware')
+
 env = Environment(
   COMPILATIONDB_USE_ABSPATH=True,
   tools=["default", "compilation_db"],

@@ -24,6 +24,9 @@
 #ifdef ESCC
 #include "safety/safety_hyundai_escc.h"
 #endif
+#ifdef EEPB
+#include "safety/safety_volkswagen_pq_eepb.h"
+#endif
 
 // CAN-FD only safety modes
 #ifdef CANFD
@@ -60,6 +63,9 @@
 
 #ifdef ESCC
 #define SAFETY_HYUNDAI_ESCC 29U
+#endif
+#ifdef EEPB
+#define SAFETY_VW_PQ_EEPB 29U
 #endif
 
 uint16_t current_safety_mode = SAFETY_SILENT;
@@ -328,6 +334,9 @@ const safety_hook_config safety_hook_registry[] = {
   {SAFETY_HYUNDAI, &hyundai_hooks},
 #ifdef ESCC
   {SAFETY_HYUNDAI_ESCC, &hyundai_escc_hooks},
+#endif
+#ifdef EEPB
+  {SAFETY_VW_PQ_EEPB, &vw_pq_eepb_hooks},
 #endif
   {SAFETY_CHRYSLER, &chrysler_hooks},
   {SAFETY_SUBARU, &subaru_hooks},

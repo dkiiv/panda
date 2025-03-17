@@ -61,4 +61,83 @@ typedef struct {
 
 void send_escc_msg(const ESCC_Msg *msg, int bus_number);
 
+// VW PQ; eEPB
+typedef struct {
+  uint COUNTER;         // byte 0, start 0, len 4, counter
+  uint Verzoegerung;    // byte 3, start 0, len 8, deceleration request (ECD), m/s/s, -7.968 offset, 0.048 scaling
+  uint Freigable_Ver;   // byte 4, start 1, len 1, brake enable bit
+  uint AutoHold_aktiv;  // byte 4, start 3, len 1, EPB hold active
+  uint Bremslicht;      // byte 4, start 7, len 1, brake light
+  uint HydrHalten;      // byte 5, start 7, len 1, standstill bit
+  uint CHECKSUM;        // byte 7, start 0, len 8, checksum
+} mEPB_1;               // EP1
+
+typedef struct {
+  uint Sta_GRA;         // byte 2, start 6, len 2, ECM cruise state
+} mMotor_2;             // MO2
+
+typedef struct {
+  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint Verz_EPB_akt;    // byte 1, start 5, len 1
+  uint Sta_ACC_Anf;     // byte 4, start 1, len 1
+  uint StaBrSyst;       // byte 5, start 7, len 1
+} mBremse_8;            // B8
+
+typedef struct {
+  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint HydHalten;       // byte 1, start 5, len 1
+} mBremse_11;           // B11
+
+typedef struct {
+  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint Recall;          // byte 1, start 1, len 1, resume button
+} mGRA_Neu;             // GRA
+
+typedef struct {
+  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint Sta_ADR;         // byte 1, start 4, len 2, radar cruise state
+  uint StSt_Info;       // byte 2, start 0, len 2
+  uint FreigSollB;      // byte 2, start 7, len 1, acceleration enable bit
+  uint Sollbeschl;      // byte 3, start 0, len 11, acceleration request, m/s/s, -7.22 offset, 0.005 offset
+} mACC_System;          // ACS
+
+typedef struct {
+  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint Fahrerhinw;      // byte 2, start 0, len 1
+  uint Akustik2;        // byte 4, start 2, len 1
+} mACC_GRA_Anzeige;     // ACA
+
+typedef struct {
+  bool gasPressed;      // 1 if (["Motor_3"]["Fahrpedal_Rohsignal"] / 100.0) > 0 else 0
+  bool brakePressed;    // ["Motor_2"]["Bremslichtschalter"]
+  bool cruiseCancel;    // ["GRA_Neu"]["GRA_Abbrechen"]
+  bool MOB_Standby;     // ["Motor_Bremse"]["MOB_Standby"]
+  uint vEgo;            // ["Bremse_1"]["Geschwindigkeit_neu__Bremse_1_"]
+} CarState;             // CS, for misc car signals to be assigned known eEPB variables
+
+typedef struct {
+  bool stopped;
+  bool stopping;
+  bool EPB_brake;
+  bool EPB_brake_last;
+  bool EPB_enable;
+  bool EPB_enable_prev;
+  bool EPB_enable_2old;
+  bool EPB_active;
+  bool ACA_blind;
+  uint ACA_blind_counter;
+  uint EPB_counter;
+  uint accel_diff;
+  uint frame;           // may not need? panda might have frame already..
+} ModuleState;          // self, variables for internal module state
+                                                                            // bus fwd
+void create_mEPB1(const mEPB_1 *msg, int bus_number);                       // 1
+void filter_mEPB1(const mEPB_1 *msg, int bus_number);                       // 0 -> 2 (bug? using same struct as msg creation..)
+void filter_mMotor_2(const mMotor_2 *msg, int bus_number);                  // 0 -> 2
+void filter_mBremse_8(const mBremse_8 *msg, int bus_number);                // 0 -> 2
+void filter_mBremse_11(const mBremse_11 *msg, int bus_number);              // 0 -> 2
+void filter_mGRA_Neu(const mGRA_Neu *msg, int bus_number);                  // 0 -> 2
+void filter_mACC_System(const mACC_System *msg, int bus_number);            // 2 -> 0
+void filter_mACC_GRA_Anzeige(const mACC_GRA_Anzeige *msg, int bus_number);  // 2 -> 0
+
 #endif
