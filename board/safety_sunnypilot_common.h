@@ -70,7 +70,17 @@ typedef struct {
   uint Bremslicht;      // byte 4, start 7, len 1, brake light
   uint HydrHalten;      // byte 5, start 7, len 1, standstill bit
   uint CHECKSUM;        // byte 7, start 0, len 8, checksum
-} mEPB_1;               // EP1
+} ptEPB_1;              // EP1, powertrain
+
+typedef struct {
+  uint COUNTER;         // byte 0, start 0, len 4, counter
+  uint Verzoegerung;    // byte 3, start 0, len 8, deceleration request (ECD), m/s/s, -7.968 offset, 0.048 scaling
+  uint Freigable_Ver;   // byte 4, start 1, len 1, brake enable bit
+  uint AutoHold_aktiv;  // byte 4, start 3, len 1, EPB hold active
+  uint Bremslicht;      // byte 4, start 7, len 1, brake light
+  uint HydrHalten;      // byte 5, start 7, len 1, standstill bit
+  uint CHECKSUM;        // byte 7, start 0, len 8, checksum
+} extRadar_EPB_1;       // EP1, radar can (bus 2)
 
 typedef struct {
   uint Sta_GRA;         // byte 2, start 6, len 2, ECM cruise state
@@ -108,12 +118,14 @@ typedef struct {
 } mACC_GRA_Anzeige;     // ACA
 
 typedef struct {
-  bool gasPressed;      // 1 if (["Motor_3"]["Fahrpedal_Rohsignal"] / 100.0) > 0 else 0
-  bool brakePressed;    // ["Motor_2"]["Bremslichtschalter"]
-  bool cruiseCancel;    // ["GRA_Neu"]["GRA_Abbrechen"]
-  bool MOB_Standby;     // ["Motor_Bremse"]["MOB_Standby"]
-  uint vEgo;            // ["Bremse_1"]["Geschwindigkeit_neu__Bremse_1_"]
-} CarState;             // CS, for misc car signals to be assigned known eEPB variables
+  bool gasPressed;        // 1 if (["Motor_3"]["Fahrpedal_Rohsignal"] / 100.0) > 0 else 0
+  bool brakePressed;      // ["Motor_2"]["Bremslichtschalter"]
+  bool cruiseCancel;      // ["GRA_Neu"]["GRA_Abbrechen"]
+  bool MOB_Standby;       // ["Motor_Bremse"]["MOB_Standby"]
+  bool EP1_Freigabe_Ver;  // OEM EPB Verzoegerung release bit
+  bool EP1_switchState;   // OEM EPB EP1_Schalterinfo, any non-0-value we consider as eEPB override
+  float vEgo;             // ["Bremse_1"]["Geschwindigkeit_neu__Bremse_1_"]
+} CarState;               // CS, for misc car signals to be assigned known eEPB variables
 
 typedef struct {
   bool stopped;
@@ -131,8 +143,8 @@ typedef struct {
   uint frame;           // may not need? panda might have frame already..
 } ModuleState;          // self, variables for internal module state
                                                                             // bus fwd
-void create_mEPB1(const mEPB_1 *msg, int bus_number);                       // 1
-void filter_mEPB1(const mEPB_1 *msg, int bus_number);                       // 0 -> 2 (bug? using same struct as msg creation..)
+void create_mEPB1(const ptEPB_1 *msg, int bus_number);                      // 1
+void create_mEPB1(const extRadar_EPB_1 *msg, int bus_number);               // 2
 void filter_mMotor_2(const mMotor_2 *msg, int bus_number);                  // 0 -> 2
 void filter_mBremse_8(const mBremse_8 *msg, int bus_number);                // 0 -> 2
 void filter_mBremse_11(const mBremse_11 *msg, int bus_number);              // 0 -> 2
