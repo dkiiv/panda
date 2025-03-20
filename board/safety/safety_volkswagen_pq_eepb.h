@@ -47,7 +47,7 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
         CS.EP1_switchState  = (GET_BYTE(to_push, 1) >> 1) & 0b11;
       }
       if (addr == BREMSE_1) {
-        CS.vEgo = ((GET_BYTE(to_push, 2) << 8) | GET_BYTE(to_push, 3)) * 0.01;
+        CS.vEgo = (((GET_BYTE(to_push, 2) & 0b1111111) << 8) | GET_BYTE(to_push, 3)) * 0.01;
       }
       break;
     case BUS_1:
