@@ -113,8 +113,8 @@ typedef struct {
 
 typedef struct {
   uint CHECKSUM;        // byte 0, start 0, len 8, checksum
-  uint Fahrerhinw;      // byte 2, start 0, len 1
-  uint Akustik2;        // byte 4, start 2, len 1
+  bool Fahrerhinw;      // byte 2, start 0, len 1
+  bool Akustik2;        // byte 4, start 2, len 1
 } mACC_GRA_Anzeige;     // ACA
 
 typedef struct {

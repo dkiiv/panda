@@ -56,6 +56,12 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
       }
       break;
     case BUS_2:
+      if (addr == ACC_SYSTEM) {
+        ACS.Sta_ADR = (GET_BYTE(to_push, 1) >> 2) & 0b11;
+        ACS.StSt_Info = (GET_BYTE(to_push, 2) >> 6) & 0b11;
+        ACS.FreigSollB = GET_BYTE(to_push, 2) & 0b1;
+        ACS.Sollbeschl = (GET_BYTE(to_push, 3) << 3) | ((GET_BYTE(to_push, 4) >> 5) & 0b111);
+      }
       break;
     default:
       break;
