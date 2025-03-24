@@ -33,36 +33,93 @@ void filter_mACC_System(const mACC_System *msg, int bus_number);            // 2
 void filter_mACC_GRA_Anzeige(const mACC_GRA_Anzeige *msg, int bus_number);  // 2 -> 0
 */
 
+#include <math.h>
 
-void create_mEPB1(const mEPB_1 *msg, int bus_number) {
-/*
-    typedef struct {
-    uint COUNTER;         // byte 0, start 0, len 4, counter
-    uint Verzoegerung;    // byte 3, start 0, len 8, deceleration request (ECD), m/s/s, -7.968 offset, 0.048 scaling
-    uint Freigable_Ver;   // byte 4, start 1, len 1, brake enable bit
-    uint AutoHold_aktiv;  // byte 4, start 3, len 1, EPB hold active
-    uint Bremslicht;      // byte 4, start 7, len 1, brake light
-    uint HydrHalten;      // byte 5, start 7, len 1, standstill bit
-    uint CHECKSUM;        // byte 7, start 0, len 8, checksum
-    } mEPB_1;              // EP1, powertrain
-*/
-    uint8_t dat[8];
-    dat[0];
-    if (bus_number == 1) {
-        dat[1];
-        dat[2];
-        dat[3];
-        dat[4];
-        dat[5];
-        dat[6];
+double limit_jerk(double accel, double prev_accel, double max_jerk, double dt) {
+    double max_delta_accel = max_jerk * dt;
+    double delta_accel = fmax(-max_delta_accel, fmin(accel - prev_accel, max_delta_accel));
+    return prev_accel + delta_accel;
+}
+
+void EPB_handler(const CarState *CS, ModuleState *self) {
+    if ((CS->aEgo < 0) && ((CS->MOB_Standby && CS->vEgo <= 18) || self->EPB_enable)) {
+        if (!self->EPB_enable) {
+            self->EPB_counter = 0;
+            self->EPB_brake = 0;
+            self->EPB_enable = 1;
+            self->EPB_brake_last = CS->aEgo;
+        } else {
+            self->EPB_brake = self->stopping ? limit_jerk(-4, self->EPB_brake_last, 0.7, 0.02) : CS->aEgo;
+            self->EPB_brake_last = self->EPB_brake;
+        }
+        self->EPB_counter++;
     } else {
-        dat[1];
-        dat[2];
-        dat[3];
-        dat[4];
-        dat[5];
-        dat[6];
+        if (self->EPB_enable && self->EPB_counter < 10) {
+            self->EPB_counter++;
+        } else {
+            self->EPB_brake = 0;
+            self->EPB_enable = 0;
+        }
     }
+
+    if (CS->gasPressed || CS->brakePressed || CS->cruiseCancel || (!CS->EP1_Freigabe_Ver || !CS->EP1_switchState)) {
+        if (self->EPB_enable) {
+            self->ACA_blind = 1;
+        }
+        self->EPB_brake = 0;
+        self->EPB_enable = 0;
+        self->EPB_enable_prev = 0;
+        self->EPB_enable_2old = 0;
+    }
+
+    if (self->ACA_blind && self->ACA_blind_counter < 150) {
+        self->ACA_blind_counter++;
+    } else {
+        self->ACA_blind = 0;
+        self->ACA_blind_counter = 0;
+    }
+
+    self->EPB_active = ((self->EPB_enable_2old && !self->EPB_enable) || self->EPB_enable);
+    self->EPB_enable_2old = self->EPB_enable_prev;
+    self->EPB_enable_prev = self->EPB_enable;
+}
+
+void create_mEPB1(const mEPB_1 *msg, const int bus_number, const CarState *CS, const ModuleState *self) {
+    uint8_t dat[8];
+    if (!CS->EP1_Freigabe_Ver && !CS->EP1_switchState) {
+        dat[0] = (msg->COUNTER << 4);
+        if (bus_number == 1) {
+          // to powertrain
+            dat[1] = 0;
+            dat[2] = 0;
+            //         Verzoegerung
+            dat[3] = ((self->EPB_brake + 7.968) / 0.048);
+            //         Freigable_Ver             AutoHold_aktiv            Bremslicht
+            dat[4] = (self->EPB_enable << 6) | (self->EPB_enable << 4) | (self->EPB_brake != 0);
+            //         HydrHalten
+            dat[5] = (self->EPB_enable);
+            dat[6] = 0;
+        } else {
+          // to radar
+            dat[1] = 0;
+            dat[2] = 0;
+            dat[3] = 0;
+            //        AutoHold_aktiv
+            dat[4] = (1 << 4);
+            //        HydrHalten
+            dat[5] = (self->stopped);
+            dat[6] = 0;
+        }
+    } else {
+        dat[0] = (msg->COUNTER << 4) | (msg->OEM[0] & 0b1111);
+        dat[1] = msg->OEM[1];
+        dat[2] = msg->OEM[2];
+        dat[3] = msg->OEM[3];
+        dat[4] = msg->OEM[4];
+        dat[5] = msg->OEM[5];
+        dat[6] = msg->OEM[6];
+    }
+    //        checksum
     dat[7] = dat[0] ^ dat[1] ^ dat[2] ^ dat[3] ^ dat[4] ^ dat[5] ^ dat[6];
 
     CANPacket_t to_send;

@@ -10,7 +10,6 @@
 #define MOTOR_BREMSE    0x284
 #define BREMSE_1        0x1A0
 #define BREMSE_8        0x1AC
-#define BREMSE_9        0x0AE
 #define BREMSE_11       0x5B7
 #define GRA_NEU         0x38A
 #define ACC_SYSTEM      0x368
@@ -45,6 +44,8 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
       if (addr == EPB_1) {              // OEM EPB module state
         CS.EP1_Freigabe_Ver = (GET_BYTE(to_push, 4) >> 6) & 0b1;
         CS.EP1_switchState  = (GET_BYTE(to_push, 1) >> 1) & 0b11;
+        for (int i = 0; i < GET_LEN(to_push); i++)
+          EP1.OEM[i] = GET_BYTE(to_push, i);
       }
       if (addr == BREMSE_1) {
         CS.vEgo = (((GET_BYTE(to_push, 2) & 0b1111111) << 8) | GET_BYTE(to_push, 3)) * 0.01;
@@ -54,14 +55,22 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
       if (addr == MOTOR_BREMSE) {
         CS.MOB_Standby = (GET_BYTE(to_push, 1) >> 3) & 0b1;
       }
+      if (addr == BREMSE_1) {
+        self.frame = (self.frame + 1) % 1000;  // 100hz
+      }
       break;
     case BUS_2:
       if (addr == ACC_SYSTEM) {
+        ACS.Anhaltewunsch = (GET_BYTE(to_push, 4) >> 1) & 0b1;
         ACS.Sta_ADR = (GET_BYTE(to_push, 1) >> 2) & 0b11;
         ACS.StSt_Info = (GET_BYTE(to_push, 2) >> 6) & 0b11;
         ACS.FreigSollB = GET_BYTE(to_push, 2) & 0b1;
         ACS.Sollbeschl = ((GET_BYTE(to_push, 3) << 3) | ((GET_BYTE(to_push, 4) >> 5) & 0b111)) & 0b11111111111;
+        self.stopping = ACS.Anhaltewunsch && (CS.vEgo <= 2 || self.stopping);
+        self.stopped = self.EPB_enable && (CS.vEgo == 0 || (self.stopping && self.stopped));
         CS.aEgo = (ACS.Sollbeschl * 0.005) - 7.22;
+        EPB_handler(&CS, &self);
+        EP1.COUNTER = (EP1.COUNTER + 1) % 16;
       }
       break;
     default:

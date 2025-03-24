@@ -70,6 +70,7 @@ typedef struct {
   uint8_t Bremslicht;      // byte 4, start 7, len 1, brake light
   uint8_t HydrHalten;      // byte 5, start 7, len 1, standstill bit
   uint8_t CHECKSUM;        // byte 7, start 0, len 8, checksum
+  uint8_t OEM[8];
 } mEPB_1;               // EP1, powertrain
 
 typedef struct {
@@ -99,6 +100,7 @@ typedef struct {
   uint8_t StSt_Info;       // byte 2, start 0, len 2
   uint8_t FreigSollB;      // byte 2, start 7, len 1, acceleration enable bit
   uint16_t Sollbeschl;     // byte 3, start 0, len 11, acceleration request, m/s/s, -7.22 offset, 0.005 offset
+  bool Anhaltewunsch;      // byte 4, start 6, len 1
 } mACC_System;          // ACS
 
 typedef struct {
@@ -112,6 +114,7 @@ typedef struct {
   bool brakePressed;       // ["Motor_2"]["Bremslichtschalter"]
   bool cruiseCancel;       // ["GRA_Neu"]["GRA_Abbrechen"]
   bool MOB_Standby;        // ["Motor_Bremse"]["MOB_Standby"]
+  bool OEM_EPB_present;
   bool EP1_Freigabe_Ver;   // OEM EPB Verzoegerung release bit
   bool EP1_switchState;    // OEM EPB EP1_Schalterinfo, any non-0-value we consider as eEPB override
   float vEgo;              // ["Bremse_1"]["Geschwindigkeit_neu__Bremse_1_"]
@@ -128,13 +131,13 @@ typedef struct {
   bool EPB_enable_2old;
   bool EPB_active;
   bool ACA_blind;
-  uint ACA_blind_counter;
-  uint EPB_counter;
-  uint accel_diff;
-  uint frame;           // 100hz
+  uint8_t ACA_blind_counter;
+  uint8_t EPB_counter;
+  uint8_t accel_diff;
+  uint8_t frame;           // 100hz
 } ModuleState;          // self, variables for internal module state
                                                                             // bus fwd
-void create_mEPB1(const mEPB_1 *msg, int bus_number);                      // 1, 2
+void create_mEPB1(const mEPB_1 *msg, int bus_number, const CarState *CS, const ModuleState *self);  // 1, 2
 void filter_mMotor_2(const mMotor_2 *msg, int bus_number);                  // 0 -> 2
 void filter_mBremse_8(const mBremse_8 *msg, int bus_number);                // 0 -> 2
 void filter_mBremse_11(const mBremse_11 *msg, int bus_number);              // 0 -> 2
