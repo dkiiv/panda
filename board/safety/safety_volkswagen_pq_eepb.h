@@ -10,14 +10,14 @@
 #define MOTOR_BREMSE    0x284
 #define BREMSE_1        0x1A0
 #define BREMSE_8        0x1AC
+#define BREMSE_9        0x0AE
 #define BREMSE_11       0x5B7
 #define GRA_NEU         0x38A
 #define ACC_SYSTEM      0x368
 #define ACC_GRA_ANZEIGE 0x56A
 
 // init all bytes
-ptEPB_1          EP1    = {0};  // powertrain EPB
-extRadar_EPB_1   RA_EP1 = {0};  // radar-CAN EPB
+mEPB_1           EP1    = {0};
 mMotor_2         MO2    = {0};
 mBremse_8        B8     = {0};
 mBremse_11       B11    = {0};
@@ -42,7 +42,7 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
       if (addr == GRA_NEU) {
         CS.cruiseCancel = (GET_BYTE(to_push, 1) >> 6) & 0b1;
       }
-      if (addr == EPB_1) {
+      if (addr == EPB_1) {              // OEM EPB module state
         CS.EP1_Freigabe_Ver = (GET_BYTE(to_push, 4) >> 6) & 0b1;
         CS.EP1_switchState  = (GET_BYTE(to_push, 1) >> 1) & 0b11;
       }
@@ -60,7 +60,8 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
         ACS.Sta_ADR = (GET_BYTE(to_push, 1) >> 2) & 0b11;
         ACS.StSt_Info = (GET_BYTE(to_push, 2) >> 6) & 0b11;
         ACS.FreigSollB = GET_BYTE(to_push, 2) & 0b1;
-        ACS.Sollbeschl = (GET_BYTE(to_push, 3) << 3) | ((GET_BYTE(to_push, 4) >> 5) & 0b111);
+        ACS.Sollbeschl = ((GET_BYTE(to_push, 3) << 3) | ((GET_BYTE(to_push, 4) >> 5) & 0b111)) & 0b11111111111;
+        CS.aEgo = (ACS.Sollbeschl * 0.005) - 7.22;
       }
       break;
     default:

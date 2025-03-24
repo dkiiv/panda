@@ -63,69 +63,60 @@ void send_escc_msg(const ESCC_Msg *msg, int bus_number);
 
 // VW PQ; eEPB
 typedef struct {
-  uint COUNTER;         // byte 0, start 0, len 4, counter
-  uint Verzoegerung;    // byte 3, start 0, len 8, deceleration request (ECD), m/s/s, -7.968 offset, 0.048 scaling
-  uint Freigable_Ver;   // byte 4, start 1, len 1, brake enable bit
-  uint AutoHold_aktiv;  // byte 4, start 3, len 1, EPB hold active
-  uint Bremslicht;      // byte 4, start 7, len 1, brake light
-  uint HydrHalten;      // byte 5, start 7, len 1, standstill bit
-  uint CHECKSUM;        // byte 7, start 0, len 8, checksum
-} ptEPB_1;              // EP1, powertrain
+  uint8_t COUNTER;         // byte 0, start 0, len 4, counter
+  uint8_t Verzoegerung;    // byte 3, start 0, len 8, deceleration request (ECD), m/s/s, -7.968 offset, 0.048 scaling
+  uint8_t Freigable_Ver;   // byte 4, start 1, len 1, brake enable bit
+  uint8_t AutoHold_aktiv;  // byte 4, start 3, len 1, EPB hold active
+  uint8_t Bremslicht;      // byte 4, start 7, len 1, brake light
+  uint8_t HydrHalten;      // byte 5, start 7, len 1, standstill bit
+  uint8_t CHECKSUM;        // byte 7, start 0, len 8, checksum
+} mEPB_1;               // EP1, powertrain
 
 typedef struct {
-  uint COUNTER;         // byte 0, start 0, len 4, counter
-  uint Verzoegerung;    // byte 3, start 0, len 8, deceleration request (ECD), m/s/s, -7.968 offset, 0.048 scaling
-  uint Freigable_Ver;   // byte 4, start 1, len 1, brake enable bit
-  uint AutoHold_aktiv;  // byte 4, start 3, len 1, EPB hold active
-  uint Bremslicht;      // byte 4, start 7, len 1, brake light
-  uint HydrHalten;      // byte 5, start 7, len 1, standstill bit
-  uint CHECKSUM;        // byte 7, start 0, len 8, checksum
-} extRadar_EPB_1;       // EP1, radar can (bus 2)
-
-typedef struct {
-  uint Sta_GRA;         // byte 2, start 6, len 2, ECM cruise state
+  uint8_t Sta_GRA;         // byte 2, start 6, len 2, ECM cruise state
 } mMotor_2;             // MO2
 
 typedef struct {
-  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
-  uint Verz_EPB_akt;    // byte 1, start 5, len 1
-  uint Sta_ACC_Anf;     // byte 4, start 1, len 1
-  uint StaBrSyst;       // byte 5, start 7, len 1
+  uint8_t CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint8_t Verz_EPB_akt;    // byte 1, start 5, len 1
+  uint8_t Sta_ACC_Anf;     // byte 4, start 1, len 1
+  uint8_t StaBrSyst;       // byte 5, start 7, len 1
 } mBremse_8;            // B8
 
 typedef struct {
-  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
-  uint HydHalten;       // byte 1, start 5, len 1
+  uint8_t CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint8_t HydHalten;       // byte 1, start 5, len 1
 } mBremse_11;           // B11
 
 typedef struct {
-  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
-  uint Recall;          // byte 1, start 1, len 1, resume button
+  uint8_t CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint8_t Recall;          // byte 1, start 1, len 1, resume button
 } mGRA_Neu;             // GRA
 
 typedef struct {
-  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
-  uint Sta_ADR;         // byte 1, start 4, len 2, radar cruise state
-  uint StSt_Info;       // byte 2, start 0, len 2
-  uint FreigSollB;      // byte 2, start 7, len 1, acceleration enable bit
-  uint Sollbeschl;      // byte 3, start 0, len 11, acceleration request, m/s/s, -7.22 offset, 0.005 offset
+  uint8_t CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint8_t Sta_ADR;         // byte 1, start 4, len 2, radar cruise state
+  uint8_t StSt_Info;       // byte 2, start 0, len 2
+  uint8_t FreigSollB;      // byte 2, start 7, len 1, acceleration enable bit
+  uint16_t Sollbeschl;     // byte 3, start 0, len 11, acceleration request, m/s/s, -7.22 offset, 0.005 offset
 } mACC_System;          // ACS
 
 typedef struct {
-  uint CHECKSUM;        // byte 0, start 0, len 8, checksum
-  bool Fahrerhinw;      // byte 2, start 0, len 1
-  bool Akustik2;        // byte 4, start 2, len 1
+  uint8_t CHECKSUM;        // byte 0, start 0, len 8, checksum
+  uint8_t Fahrerhinw;      // byte 2, start 0, len 1
+  uint8_t Akustik2;        // byte 4, start 2, len 1
 } mACC_GRA_Anzeige;     // ACA
 
 typedef struct {
-  bool gasPressed;        // 1 if (["Motor_3"]["Fahrpedal_Rohsignal"] / 100.0) > 0 else 0
-  bool brakePressed;      // ["Motor_2"]["Bremslichtschalter"]
-  bool cruiseCancel;      // ["GRA_Neu"]["GRA_Abbrechen"]
-  bool MOB_Standby;       // ["Motor_Bremse"]["MOB_Standby"]
-  bool EP1_Freigabe_Ver;  // OEM EPB Verzoegerung release bit
-  bool EP1_switchState;   // OEM EPB EP1_Schalterinfo, any non-0-value we consider as eEPB override
-  float vEgo;             // ["Bremse_1"]["Geschwindigkeit_neu__Bremse_1_"]
-} CarState;               // CS, for misc car signals to be assigned known eEPB variables
+  bool gasPressed;         // 1 if (["Motor_3"]["Fahrpedal_Rohsignal"] / 100.0) > 0 else 0
+  bool brakePressed;       // ["Motor_2"]["Bremslichtschalter"]
+  bool cruiseCancel;       // ["GRA_Neu"]["GRA_Abbrechen"]
+  bool MOB_Standby;        // ["Motor_Bremse"]["MOB_Standby"]
+  bool EP1_Freigabe_Ver;   // OEM EPB Verzoegerung release bit
+  bool EP1_switchState;    // OEM EPB EP1_Schalterinfo, any non-0-value we consider as eEPB override
+  float vEgo;              // ["Bremse_1"]["Geschwindigkeit_neu__Bremse_1_"]
+  float aEgo;              // ACS_Sollbeschl
+} CarState;             // CS, for misc car signals to be assigned known eEPB variables
 
 typedef struct {
   bool stopped;
@@ -140,11 +131,10 @@ typedef struct {
   uint ACA_blind_counter;
   uint EPB_counter;
   uint accel_diff;
-  uint frame;           // may not need? panda might have frame already..
+  uint frame;           // 100hz
 } ModuleState;          // self, variables for internal module state
                                                                             // bus fwd
-void create_mEPB1(const ptEPB_1 *msg, int bus_number);                      // 1
-void create_mEPB1(const extRadar_EPB_1 *msg, int bus_number);               // 2
+void create_mEPB1(const mEPB_1 *msg, int bus_number);                      // 1, 2
 void filter_mMotor_2(const mMotor_2 *msg, int bus_number);                  // 0 -> 2
 void filter_mBremse_8(const mBremse_8 *msg, int bus_number);                // 0 -> 2
 void filter_mBremse_11(const mBremse_11 *msg, int bus_number);              // 0 -> 2

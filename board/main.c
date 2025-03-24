@@ -178,6 +178,13 @@ void send_escc_msg(const ESCC_Msg *msg, const int bus_number) {
   can_send(&to_send, bus_number, true);
 }
 #endif
+#ifdef EEPB
+bool is_car_safety_mode_eepb(uint16_t mode) {
+  return is_car_safety_mode(mode) && (mode != SAFETY_HYUNDAI_ESCC);  // fix me, make EEPB safety mode
+}
+#define is_car_safety_mode is_car_safety_mode_eepb
+#include "board/eepb/eepb_can.c"
+#endif
 
 // ***************************** main code *****************************
 
@@ -287,7 +294,7 @@ void tick_handler(void) {
         heartbeat_engaged_mismatches = 0U;
       }
 
-#ifndef ESCC // Hearbet disabled when ESCC
+#ifndef ESCC || EEPB // Heartbeat disabled when ESCC
       if (!heartbeat_disabled) {
         // if the heartbeat has been gone for a while, go to SILENT safety mode and enter power save
         if (heartbeat_counter >= (check_started() ? HEARTBEAT_IGNITION_CNT_ON : HEARTBEAT_IGNITION_CNT_OFF)) {
