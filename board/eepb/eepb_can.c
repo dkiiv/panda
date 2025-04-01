@@ -7,6 +7,10 @@ void filter_mBremse_11(const mBremse_11 *msg, int bus_number);              // 0
 void filter_mGRA_Neu(const mGRA_Neu *msg, int bus_number);                  // 0 -> 2
 void filter_mACC_System(const mACC_System *msg, int bus_number);            // 2 -> 0
 void filter_mACC_GRA_Anzeige(const mACC_GRA_Anzeige *msg, int bus_number);  // 2 -> 0
+
+TODO:
+1: make sure these functions are given the right args where they are called
+2: investigate the "can_set_checksum" function, we are manually doing checksum calc
 */
 
 #include <math.h>
@@ -114,7 +118,8 @@ void filter_mMotor_2(const mMotor_2 *msg, const ModuleState *self, int bus_numbe
     uint8_t dat[8];
     dat[0] = msg->msg[0];
     dat[1] = msg->msg[1];
-    dat[2] = (self->EPB_active ? (msg->msg[2] & 0b01111101) : msg->msg[2]);
+                // setting GRA_Status 1
+    dat[2] = (self->EPB_active ? ((msg->msg[2] & 0b01111100) | 0b1) : msg->msg[2]);
     dat[3] = msg->msg[3];
     dat[4] = msg->msg[4];
     dat[5] = msg->msg[5];
@@ -124,6 +129,31 @@ void filter_mMotor_2(const mMotor_2 *msg, const ModuleState *self, int bus_numbe
     CANPacket_t to_send;
     to_send.extended = 1;
     to_send.addr = MOTOR_2;
+    to_send.bus = bus_number;
+    to_send.data_len_code = sizeof(dat);
+    memcpy(to_send.data, dat, sizeof(dat));
+    
+    can_set_checksum(&to_send);
+    can_send(&to_send, bus_number, true);
+    }
+
+void filter_mBremse_8(const mBremse_8 *msg, const ModuleState *self, int bus_number) {
+    uint8_t dat[8];
+                // setting BR8_Sta_ACC_Anf 1 and BR8_Verz_EPB_akt 0
+    dat[1] = (self->EPB_active ? ((msg->msg[1] & 0b11110011) | 0b1000) : msg->msg[1]);
+    dat[2] = msg->msg[2];
+    dat[3] = msg->msg[3];
+    dat[4] = msg->msg[4];
+                // setting BR8_StaBrSyst 1
+    dat[5] = (self->EPB_active ? (msg->msg[5] | 0b1) : msg->msg[5]);
+    dat[6] = msg->msg[6];
+    dat[7] = msg->msg[7];
+
+    dat[0] = dat[1] ^ dat[2] ^ dat[3] ^ dat[4] ^ dat[5] ^ dat[6] ^ dat[7];
+
+    CANPacket_t to_send;
+    to_send.extended = 1;
+    to_send.addr = BREMSE_8;
     to_send.bus = bus_number;
     to_send.data_len_code = sizeof(dat);
     memcpy(to_send.data, dat, sizeof(dat));
