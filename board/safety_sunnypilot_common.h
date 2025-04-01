@@ -75,6 +75,7 @@ typedef struct {
 
 typedef struct {
   uint8_t Sta_GRA;         // byte 2, start 6, len 2, ECM cruise state
+  uint8_t msg[8];
 } mMotor_2;             // MO2
 
 typedef struct {
@@ -82,16 +83,19 @@ typedef struct {
   uint8_t Verz_EPB_akt;    // byte 1, start 5, len 1
   uint8_t Sta_ACC_Anf;     // byte 4, start 1, len 1
   uint8_t StaBrSyst;       // byte 5, start 7, len 1
+  uint8_t msg[8];
 } mBremse_8;            // B8
 
 typedef struct {
   uint8_t CHECKSUM;        // byte 0, start 0, len 8, checksum
   uint8_t HydHalten;       // byte 1, start 5, len 1
+  uint8_t msg[8];
 } mBremse_11;           // B11
 
 typedef struct {
   uint8_t CHECKSUM;        // byte 0, start 0, len 8, checksum
   uint8_t Recall;          // byte 1, start 1, len 1, resume button
+  uint8_t msg[4];
 } mGRA_Neu;             // GRA
 
 typedef struct {
@@ -101,12 +105,14 @@ typedef struct {
   uint8_t FreigSollB;      // byte 2, start 7, len 1, acceleration enable bit
   uint16_t Sollbeschl;     // byte 3, start 0, len 11, acceleration request, m/s/s, -7.22 offset, 0.005 offset
   bool Anhaltewunsch;      // byte 4, start 6, len 1
+  uint8_t msg[8];
 } mACC_System;          // ACS
 
 typedef struct {
   uint8_t CHECKSUM;        // byte 0, start 0, len 8, checksum
   uint8_t Fahrerhinw;      // byte 2, start 0, len 1
   uint8_t Akustik2;        // byte 4, start 2, len 1
+  uint8_t msg[8];
 } mACC_GRA_Anzeige;     // ACA
 
 typedef struct {
@@ -137,8 +143,8 @@ typedef struct {
   uint8_t frame;           // 100hz
 } ModuleState;          // self, variables for internal module state
                                                                             // bus fwd
-void create_mEPB1(const mEPB_1 *msg, int bus_number, const CarState *CS, const ModuleState *self);  // 1, 2
-void filter_mMotor_2(const mMotor_2 *msg, int bus_number);                  // 0 -> 2
+void create_mEPB1(const mEPB_1 *msg, const CarState *CS, const ModuleState *self, int bus_number);  // 1, 2
+void filter_mMotor_2(const mMotor_2 *msg, const ModuleState *self, int bus_number);                 // 0 -> 2
 void filter_mBremse_8(const mBremse_8 *msg, int bus_number);                // 0 -> 2
 void filter_mBremse_11(const mBremse_11 *msg, int bus_number);              // 0 -> 2
 void filter_mGRA_Neu(const mGRA_Neu *msg, int bus_number);                  // 0 -> 2

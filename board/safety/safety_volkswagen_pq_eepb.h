@@ -34,12 +34,16 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
     case BUS_0:
       if (addr == MOTOR_2) {
         CS.brakePressed = (GET_BYTE(to_push, 2) >> 7) & 0b1;
+        for (int i = 0; i < GET_LEN(to_push); i++)
+          MO2.msg[i] = GET_BYTE(to_push, i);
       }
       if (addr == MOTOR_3) {
         CS.gasPressed = GET_BYTE(to_push, 2) & 0xFF;
       }
       if (addr == GRA_NEU) {
         CS.cruiseCancel = (GET_BYTE(to_push, 1) >> 6) & 0b1;
+        for (int i = 0; i < GET_LEN(to_push); i++)
+          GRA.msg[i] = GET_BYTE(to_push, i);
       }
       if (addr == EPB_1) {              // OEM EPB module state
         CS.EP1_Freigabe_Ver = (GET_BYTE(to_push, 4) >> 6) & 0b1;
@@ -49,6 +53,14 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
       }
       if (addr == BREMSE_1) {
         CS.vEgo = (((GET_BYTE(to_push, 2) & 0b1111111) << 8) | GET_BYTE(to_push, 3)) * 0.01;
+      }
+      if (addr == BREMSE_8) {
+        for (int i = 0; i < GET_LEN(to_push); i++)
+          B8.msg[i] = GET_BYTE(to_push, i);
+      }
+      if (addr == BREMSE_11) {
+        for (int i = 0; i < GET_LEN(to_push); i++)
+          B11.msg[i] = GET_BYTE(to_push, i);
       }
       break;
     case BUS_1:
@@ -71,6 +83,12 @@ static void eepb_rx_hook(const CANPacket_t* to_push) {
         CS.aEgo = (ACS.Sollbeschl * 0.005) - 7.22;
         EPB_handler(&CS, &self);
         EP1.COUNTER = (EP1.COUNTER + 1) % 16;
+        for (int i = 0; i < GET_LEN(to_push); i++)
+          ACS.msg[i] = GET_BYTE(to_push, i);
+      }
+      if (addr == ACC_GRA_ANZEIGE) {
+        for (int i = 0; i < GET_LEN(to_push); i++)
+          ACA.msg[i] = GET_BYTE(to_push, i);
       }
       break;
     default:
