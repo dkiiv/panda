@@ -161,3 +161,56 @@ void filter_mBremse_8(const mBremse_8 *msg, const ModuleState *self, int bus_num
     can_set_checksum(&to_send);
     can_send(&to_send, bus_number, true);
     }
+
+void filter_mBremse_11(const mBremse_11 *msg, const ModuleState *self, int bus_number) {
+    uint8_t dat[8];
+                // setting B11_HydHalten
+    dat[1] = (self->stopped ? (msg->msg[1] | 0b100) : msg->msg[1]);
+    dat[2] = msg->msg[2];
+    dat[3] = msg->msg[3];
+    dat[4] = msg->msg[4];
+    dat[5] = msg->msg[5];
+    dat[6] = msg->msg[6];
+    dat[7] = msg->msg[7];
+
+    dat[0] = dat[1] ^ dat[2] ^ dat[3] ^ dat[4] ^ dat[5] ^ dat[6] ^ dat[7];
+
+    CANPacket_t to_send;
+    to_send.extended = 1;
+    to_send.addr = BREMSE_11;
+    to_send.bus = bus_number;
+    to_send.data_len_code = sizeof(dat);
+    memcpy(to_send.data, dat, sizeof(dat));
+    
+    can_set_checksum(&to_send);
+    can_send(&to_send, bus_number, true);
+    }
+
+// TODO: complete mGRA_Neu resume spam here, need to investigate modus operator in C vs python
+// TODO: complete mACC_System filter, need to convert ACS_Sollbeschl 3.01 into binary (11bits)
+
+void filter_mACC_GRA_Anzeige(const mACC_GRA_Anzeige *msg, const ModuleState *self, int bus_number) {
+    uint8_t dat[8];
+
+    dat[1] = msg->msg[1];
+                // set ACA_Fahrerhinw 0
+    dat[2] = (self->ACA_blind ? (msg->msg[2] & 0b01111111) : msg->msg[2]);
+    dat[3] = msg->msg[3];
+                // set ACA_Akustik2 0
+    dat[4] = (self->ACA_blind ? (msg->msg[4] & 0b11011111) : msg->msg[4]);
+    dat[5] = msg->msg[5];
+    dat[6] = msg->msg[6];
+    dat[7] = msg->msg[7];
+
+    dat[0] = dat[1] ^ dat[2] ^ dat[3] ^ dat[4] ^ dat[5] ^ dat[6] ^ dat[7];
+
+    CANPacket_t to_send;
+    to_send.extended = 1;
+    to_send.addr = ACC_GRA_ANZEIGE;
+    to_send.bus = bus_number;
+    to_send.data_len_code = sizeof(dat);
+    memcpy(to_send.data, dat, sizeof(dat));
+    
+    can_set_checksum(&to_send);
+    can_send(&to_send, bus_number, true);
+    }

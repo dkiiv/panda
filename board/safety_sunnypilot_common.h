@@ -143,12 +143,12 @@ typedef struct {
   uint8_t frame;           // 100hz
 } ModuleState;          // self, variables for internal module state
                                                                             // bus fwd
-void create_mEPB1(const mEPB_1 *msg, const CarState *CS, const ModuleState *self, int bus_number);  // 1, 2
-void filter_mMotor_2(const mMotor_2 *msg, const ModuleState *self, int bus_number);                 // 0 -> 2
-void filter_mBremse_8(const mBremse_8 *msg, int bus_number);                // 0 -> 2
-void filter_mBremse_11(const mBremse_11 *msg, int bus_number);              // 0 -> 2
+void create_mEPB1(const mEPB_1 *msg, const CarState *CS, const ModuleState *self, int bus_number);   // 1, 2
+void filter_mMotor_2(const mMotor_2 *msg, const ModuleState *self, int bus_number);                  // 0 -> 2
+void filter_mBremse_8(const mBremse_8 *msg, const ModuleState *self, int bus_number);                // 0 -> 2
+void filter_mBremse_11(const mBremse_11 *msg, const ModuleState *self, int bus_number);              // 0 -> 2
 void filter_mGRA_Neu(const mGRA_Neu *msg, int bus_number);                  // 0 -> 2
 void filter_mACC_System(const mACC_System *msg, int bus_number);            // 2 -> 0
-void filter_mACC_GRA_Anzeige(const mACC_GRA_Anzeige *msg, int bus_number);  // 2 -> 0
+void filter_mACC_GRA_Anzeige(const mACC_GRA_Anzeige *msg, const ModuleState *self, int bus_number);  // 2 -> 0
 
 #endif
