@@ -20,6 +20,10 @@ AddOption('--escc',
           action='store_true',
           help='build escc firmware')
 
+AddOption('--epla',
+          action='store_true',
+          help='build epla firmware')
+
 env = Environment(
   COMPILATIONDB_USE_ABSPATH=True,
   tools=["default", "compilation_db"],
