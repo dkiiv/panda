@@ -59,6 +59,17 @@ typedef struct {
   uint8_t acc_obj_rel_spd_2;
 } ESCC_Msg;
 
-void send_escc_msg(const ESCC_Msg *msg, int bus_number);
+// void send_escc_msg(const ESCC_Msg *msg, int bus_number);
+
+typedef struct {             // B1-8  sb0-7  len1-X
+  uint8_t PL1_Checksumme;    // 1     0      8
+  uint8_t PL1_Zaehler;       // 2     0      4
+  uint8_t PL1_Stat_PLA_EPS;  // 2     4      4
+  uint16_t PL1_LW_Soll;      // 3     0      15
+  uint8_t PL1_LW_Soll_Sign;  // 4     7      1
+  uint8_t PL1_Stat_PLA_ESP;  // 5     0      4
+} EPS_PLA;
+
+// void send_epla_msg(const EPS_PLA *msg, int bus_number);
 
 #endif
