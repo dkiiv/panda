@@ -462,12 +462,21 @@ int main(void) {
       if (fault_status == FAULT_STATUS_NONE) {
       #endif
         // useful for debugging, fade breaks = panda is overloaded
+        #ifdef EPLA
+        for (uint32_t fade = 0U; fade < MAX_LED_FADE; fade += 1U) {
+          current_board->set_led(LED_BLUE, true);
+          delay(fade >> 4);
+          current_board->set_led(LED_BLUE, false);
+          delay((MAX_LED_FADE - fade) >> 4);
+        }
+        #else
         for (uint32_t fade = 0U; fade < MAX_LED_FADE; fade += 1U) {
           current_board->set_led(LED_RED, true);
           delay(fade >> 4);
           current_board->set_led(LED_RED, false);
           delay((MAX_LED_FADE - fade) >> 4);
         }
+        #endif
 
         for (uint32_t fade = MAX_LED_FADE; fade > 0U; fade -= 1U) {
           current_board->set_led(LED_RED, true);
