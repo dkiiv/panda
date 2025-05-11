@@ -8,6 +8,7 @@
 #define BREMSE_1        0x1A0
 #define BREMSE_3        0x4A0
 #define KOMBI_1         0x320
+#define GK_1            0x390
 
 bool filter;
 int counter;
