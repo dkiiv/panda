@@ -10,7 +10,7 @@
 #define KOMBI_1         0x320
 
 /*
-msg name   signal name          B1-8  sb0-7  len1-X
+msg name   signal name          B0-7  sb0-7  len1-X
 mBremse_1: BR1_Rad_kmh          2     1      15
 mBremse_3: BR3_Fahrtr_VL        0     0      1
            BR3_Rad_kmh_VL       0     1      15
