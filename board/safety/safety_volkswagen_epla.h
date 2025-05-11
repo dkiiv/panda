@@ -9,6 +9,10 @@
 #define BREMSE_3        0x4A0
 #define KOMBI_1         0x320
 
+bool filter;
+int counter;
+int pla_stat;
+
 /*
 msg name   signal name          B0-7  sb0-7  len1-X
 mBremse_1: BR1_Rad_kmh          2     1      15
@@ -27,8 +31,22 @@ static void epla_rx_hook(const CANPacket_t* to_push) {
   const int bus_num = GET_BUS(to_push);
   const int addr = GET_ADDR(to_push);
 
+    // if PLA isnt seen for 0.5s filter force cancels
+  if (counter >= 20) {
+    filter = 0;
+    counter = 25;  // cap variable so we dont increment into infinity
+  }
+
   switch (bus_num) {
     case BUS_0:
+      if (addr == PLA_1) {
+          // toggle filter on when PLA RX is status 4, or 6
+        pla_stat = (GET_BYTE(to_push, 1) & 0b1111);
+        filter = (pla_stat == 4U || pla_stat == 6U);
+      }
+      if (addr == KOMBI_1) {
+        counter = filter ? 0 : +1;
+      }
       break;
     case BUS_1:
       break;
