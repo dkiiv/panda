@@ -391,6 +391,9 @@ int main(void) {
 #ifdef ESCC
   // init to SAFETY_HYUNDAI_ESCC and can all output
   set_safety_mode(SAFETY_HYUNDAI_ESCC, 1U);
+#elif EPLA
+  // init to SAFETY_VOLKSWAGEN_PLA and can all output
+  set_safety_mode(SAFETY_VOLKSWAGEN_PLA, 1U);
 #else
   // init to SILENT and can silent
   set_safety_mode(SAFETY_SILENT, 0U);
