@@ -1,3 +1,5 @@
+#include <string.h>
+
 #pragma once
 
 #define BUS_0 0  // car CAN
@@ -28,7 +30,7 @@ mBremse_3: BR3_Fahrtr_VL        0     0      1
 mKombi_1:  KO1_kmh              3     1      15
 */
 
-static void epla_rx_hook(const CANPacket_t* to_push) {
+static void epla_rx_hook(CANPacket_t* to_push) {
   const int bus_num = GET_BUS(to_push);
   const int addr = GET_ADDR(to_push);
 
@@ -45,8 +47,21 @@ static void epla_rx_hook(const CANPacket_t* to_push) {
         pla_stat = (GET_BYTE(to_push, 1) & 0b1111);
         filter = (pla_stat == 4U || pla_stat == 6U);
       }
+      if (addr == BREMSE_1) {
+        filter ? memset(&to_push->data[2], 0, 2) : (void)0;
+      }
+      if (addr == BREMSE_3) {
+        filter ? memset(to_push->data, 0, GET_LEN(to_push)) : (void)0;
+      }
       if (addr == KOMBI_1) {
-        counter = filter ? 0 : +1;
+        counter = filter ? 0 : counter + 1;
+        if (filter) {
+          to_push->data[3] &= 0b00000001;
+          to_push->data[4] = 0;
+        }
+      }
+      if (addr == GK_1) {
+        filter ? to_push->data[2] |= 0b01000000 : (void)0;
       }
       break;
     case BUS_1:
