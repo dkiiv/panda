@@ -300,9 +300,11 @@ void loop(void) {
 }
 
 int main(void) {
+  // Init LED GPIOs
   set_gpio_mode(GPIOC, 9, MODE_OUTPUT);
   set_gpio_mode(GPIOC, 7, MODE_OUTPUT);
   set_gpio_mode(GPIOC, 6, MODE_OUTPUT);
+
   // Init interrupt table
   init_interrupts(true);
 
