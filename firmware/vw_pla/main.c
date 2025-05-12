@@ -187,18 +187,6 @@ void CAN3_TX_IRQ_Handler(void) {
 
 bool sent;
 
-// Toyota Checksum algorithm
-uint8_t toyota_checksum(int addr, uint8_t *dat, int len){
-  int cksum = 0;
-  for(int ii = 0; ii < (len - 1); ii++){
-    cksum = (cksum + dat[ii]); 
-  }
-  cksum += len;
-  cksum += ((addr >> 8U) & 0xFF); // idh
-  cksum += ((addr) & 0xFF); // idl
-  return cksum & 0xFF;
-}
-
 #define MAX_TIMEOUT 50U
 uint32_t timeout = 0;
 
@@ -213,51 +201,27 @@ uint8_t state = 0;
 #define FAULT_INVALID 6U
 #define FAULT_COUNTER 7U
 
-// CAN1 connects to the controls bus
-#define CAN_OUTPUT_SAS 0x50
-#define CAN_OUTPUT_WHEEL_SPEED 0x100
-#define CAN_OUTPUT_ACC_STATE 0x150
-#define CAN_INPUT_ACC_REQ 0x151
+void CAN1_RX0_IRQ_Handler(void) {
+  // PTCAN connects here
+  while ((CAN1->RF0R & CAN_RF0R_FMP0) != 0) {
+    uint16_t address = CAN1->sFIFOMailBox[0].RIR >> 21;
+    #ifdef DEBUG_CAN
+    puts("CAN2 RX: ");
+    puth(address);
+    puts("\n");
+    #endif
+    switch (address) {  
+      default: ;
+    }
+    can_rx(0);
+  }
+}
 
-// CAN2 connects to the PTCAN of the car
-#define CAN2_INPUT_SAS 0x25
-#define CAN2_INPUT_WHEEL_SPEED1 0xB0
-#define CAN2_INPUT_WHEEL_SPEED2 0xB2
-#define CAN2_INPUT_SPEED 0xB4
-#define CAN2_INPUT_BRAKE_MODULE 0x224
-
-// can input counters
-uint8_t can1_count_in = 0;
-uint8_t can2_count_in = 0;
-
-bool brakes_pressed = 0;
-
-int16_t steer_angle = 0;
-int16_t steer_rate = 0;
-
-uint16_t wheel_speed_fl = 0;
-uint16_t wheel_speed_fr = 0;
-uint16_t wheel_speed_rr = 0;
-uint16_t wheel_speed_rl = 0;
-
-uint16_t vehicle_speed = 0;
-
-// acc states
-bool acc_mode = 0;
-bool acc_engaged = 0;
-uint16_t acc_set_speed_kmh = 0;
-// buttons
-bool acc_on_off_sw = 0;
-bool acc_speed_up = 0;
-bool acc_speed_down = 0;
-bool acc_cancel = 0;
-
-const uint8_t crc_poly = 0x1D;  // standard crc8 SAE J1850
-uint8_t crc8_lut_1d[256];
-
-
-// adc and dac stuff
-uint32_t adc_in = 0;
+void CAN1_SCE_IRQ_Handler(void) {
+  state = FAULT_SCE;
+  can_sce(CAN1);
+  llcan_clear_send(CAN1);
+}
 
 void CAN2_RX0_IRQ_Handler(void) {
   while ((CAN2->RF0R & CAN_RF0R_FMP0) != 0) {
@@ -268,99 +232,9 @@ void CAN2_RX0_IRQ_Handler(void) {
     puts("\n");
     #endif
     switch (address) {
-      case CAN_INPUT_ACC_REQ: ;
-        uint8_t dat[6];
-        for (int i=0; i<6; i++) {
-          dat[i] = GET_BYTE(&CAN2->sFIFOMailBox[0], i);
-        }
-        uint8_t index = dat[1] & COUNTER_CYCLE;
-        if(dat[0] == lut_checksum(dat, 6, crc8_lut_1d)) {
-          if (((can1_count_in + 1U) & COUNTER_CYCLE) == index) {
-            can1_count_in++;
-          }
-          else {
-            state = FAULT_COUNTER;
-          }
-          state = NO_FAULT;
-          timeout = 0;
-        }
-        else {
-          state = FAULT_BAD_CHECKSUM;
-          puts("checksum fail 0x22E \n");
-          puts("DATA: ");
-          for(int ii = 0; ii < 6; ii++){
-            puth2(dat[ii]);
-          }
-          puts("\n");
-          puts("expected: ");
-          puth2(lut_checksum(dat, 6, crc8_lut_1d));
-          puts(" got: ");
-          puth2(dat[0]);
-          puts("\n");
-        }
-        break;
       default: ;
     }
     can_rx(1);
-  }
-}
-
-void CAN1_SCE_IRQ_Handler(void) {
-  state = FAULT_SCE;
-  can_sce(CAN1);
-  llcan_clear_send(CAN1);
-}
-
-void CAN1_RX0_IRQ_Handler(void) {
-  // PTCAN connects here
-  while ((CAN1->RF0R & CAN_RF0R_FMP0) != 0) {
-    uint16_t address = CAN1->sFIFOMailBox[0].RIR >> 21;
-    #ifdef DEBUG_CAN
-    puts("CAN2 RX: ");
-    puth(address);
-    puts("\n");
-    #endif
-    switch (address) {
-      case CAN2_INPUT_SAS: ;
-      uint8_t dat[8];
-        for (int i=0; i<8; i++) {
-          dat[i] = GET_BYTE(&CAN1->sFIFOMailBox[0], i);
-        }
-        steer_angle = (((dat[0] & 0xF) << 8) | dat[1]) + (dat[4] >> 4 & 0xF);
-        steer_rate = ((dat[4] & 0xF) << 8 | dat[5]);
-        break;
-      case CAN2_INPUT_WHEEL_SPEED1: ;
-      uint8_t dat1[8];
-        for (int i=0; i<8; i++) {
-          dat1[i] = GET_BYTE(&CAN1->sFIFOMailBox[0], i);
-        }
-        wheel_speed_fl = (dat1[0] << 8) | (dat1[1]);
-        wheel_speed_fr = (dat1[2] << 8) | (dat1[3]);
-        break;
-      case CAN2_INPUT_WHEEL_SPEED2: ;
-        uint8_t dat2[8];
-        for (int i=0; i<8; i++) {
-          dat2[i] = GET_BYTE(&CAN1->sFIFOMailBox[0], i);
-        }
-        wheel_speed_rl = (dat2[0] << 8) | dat2[1];
-        wheel_speed_rr = (dat2[2] << 8) | dat2[3];
-        break;
-      case CAN2_INPUT_SPEED: ;
-      uint8_t dat3[8];
-        for (int i=0; i<8; i++) {
-          dat3[i] = GET_BYTE(&CAN1->sFIFOMailBox[0], i);
-        }
-        vehicle_speed = (dat3[5] << 8) | dat3[6];
-        break;
-      case CAN2_INPUT_BRAKE_MODULE: ;
-      uint8_t dat4[8];
-        for (int i=0; i<8; i++) {
-          dat4[i] = GET_BYTE(&CAN1->sFIFOMailBox[0], i);
-        }
-        brakes_pressed = (dat4[0] >> 4) & 0x01;      
-      default: ;
-    }
-    can_rx(0);
   }
 }
 
@@ -378,7 +252,7 @@ void CAN3_RX0_IRQ_Handler(void) {
     puth(address);
     puts("\n");
     #endif
-    // can_rx(2);
+    can_rx(2);
   }
 }
 
@@ -399,129 +273,36 @@ int to_signed(int d, int bits) {
 uint8_t can1_count_out = 0;
 void TIM3_IRQ_Handler(void) {
   // cmain loop for sending 100hz messages
-
-  if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
-    uint8_t dat[8];
-    // steer angle and steer rate
-    dat[5] = (steer_rate & 0xFF);
-    dat[4] = (steer_rate >> 8U);
-    dat[3] = (steer_angle & 0xFF);
-    dat[2] = (steer_angle >> 8U);
-    dat[1] = ((state & 0xFU) << 4) | can1_count_out;
-    dat[0] = lut_checksum(dat, 6, crc8_lut_1d);
-
-    CAN_FIFOMailBox_TypeDef to_send;
-    to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-    to_send.RDHR = dat[4] | (dat[5] << 8);
-    to_send.RDTR = 6;
-    to_send.RIR = (CAN_OUTPUT_SAS << 21) | 1U;
-    can_send(&to_send, 1, false);
-
-    can1_count_out++;
-    can1_count_out &= COUNTER_CYCLE;
-  }
-  if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
-    uint8_t dat[8];
-    // wheel speeds
-    dat[7] = (wheel_speed_rr & 0xFF);
-    dat[6] = (wheel_speed_rr >> 8U);
-    dat[5] = (wheel_speed_rl & 0xFF);
-    dat[4] = (wheel_speed_rl >> 8U);
-    dat[3] = (wheel_speed_fr & 0xFF);
-    dat[2] = (wheel_speed_fr >> 8U);
-    dat[1] = (wheel_speed_fl & 0xFF);
-    dat[0] = (wheel_speed_fl >> 8U);
-
-    CAN_FIFOMailBox_TypeDef to_send;
-    to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-    to_send.RDHR = dat[4] | (dat[5] << 8) | (dat[6] << 16) | (dat[7] << 24);
-    to_send.RDTR = 8;
-    to_send.RIR = (CAN_OUTPUT_WHEEL_SPEED << 21) | 1U;
-    can_send(&to_send, 1, false);
-  }
-  if ((CAN1->TSR & CAN_TSR_TME0) == CAN_TSR_TME0) {
-    uint8_t dat[8];
-    dat[5] = 0;
-    dat[4] = (acc_set_speed_kmh & 0xFF);
-    dat[3] = (acc_set_speed_kmh << 8U);
-    dat[2] = (acc_mode << 5U) | (acc_engaged << 4U) | (acc_on_off_sw << 3U) | (acc_speed_up << 2U) | (acc_speed_down << 1U) | (acc_cancel);
-    dat[1] = ((state & 0xFU) << 4) | can1_count_out;
-    dat[0] = lut_checksum(dat, 6, crc8_lut_1d);
-    
-    CAN_FIFOMailBox_TypeDef to_send;
-    to_send.RDLR = dat[0] | (dat[1] << 8) | (dat[2] << 16) | (dat[3] << 24);
-    to_send.RDHR = dat[4] | (dat[5] << 8);
-    to_send.RDTR = 6;
-    to_send.RIR = (CAN_OUTPUT_ACC_STATE << 21) | 1U;
-    can_send(&to_send, 1, false);
-
-  } else {
-    // old can packet hasn't sent!
-    state = FAULT_SEND;
-    #ifdef DEBUG_CAN
-      puts("CAN1 MISS1\n");
-    #endif
-  }
-  // blink the LED
-
   TIM3->SR = 0;
-
-  // up timeout
-  if (timeout == MAX_TIMEOUT) {
-    state = FAULT_TIMEOUT;
-  } else {
-    timeout += 1U;
-  }
-
-  puts("SWITCHES: ");
-  puth((acc_mode << 5U) | (acc_engaged << 4U) | (acc_on_off_sw << 3U) | (acc_speed_up << 2U) | (acc_speed_down << 1U) | (acc_cancel));
-  puts("\n");
-  // puts("SAS: ");
-  // puth(steer_angle);
-  // puts(" STEER_RATE: ");
-  // puth(steer_rate);
-  // puts(" SPEED: ");
-  // puth(vehicle_speed);
-  // puts("\n ");
 }
 
 // ***************************** main code *****************************
 
+#define MAX_FADE 8192U
+void set_led(uint8_t color, bool enabled) {
+  switch (color){
+    case LED_RED:
+      set_gpio_output(GPIOC, 9, !enabled);
+      break;
+     case LED_GREEN:
+      set_gpio_output(GPIOC, 7, !enabled);
+      break;
+    case LED_BLUE:
+      set_gpio_output(GPIOC, 6, !enabled);
+      break;
+    default:
+      break;
+  }
+}
 
 void loop(void) {
-  // read/write
-  adc_in = adc_get(12);
-
-  //handle the ACC_SW
-  switch(adc_in){
-    case 0x700 ... 0x800: ;
-      //cancel
-      acc_cancel = 1;
-    break;
-    case 0xb00 ... 0xc00: ;
-      // - set
-      acc_speed_down = 1;
-    break;
-    case 0xd00 ... 0xe00: ;
-      // + res
-      acc_speed_up = 1;
-    break;
-    case 0xf00 ... 0xFFF: ;
-     // on-off
-     acc_on_off_sw = 1;
-     break;
-    default : ;
-    acc_on_off_sw = 0;
-    acc_cancel = 0;
-    acc_speed_down = 0;
-    acc_speed_up = 0;
-  }
-  
   watchdog_feed();
-
 }
 
 int main(void) {
+  set_gpio_mode(GPIOC, 9, MODE_OUTPUT);
+  set_gpio_mode(GPIOC, 7, MODE_OUTPUT);
+  set_gpio_mode(GPIOC, 6, MODE_OUTPUT);
   // Init interrupt table
   init_interrupts(true);
 
@@ -545,7 +326,6 @@ int main(void) {
   peripherals_init();
   detect_configuration();
   detect_board_type();
-
   // init board
   current_board->init();
   // enable USB
@@ -593,7 +373,25 @@ int main(void) {
   puts("**** INTERRUPTS ON ****\n");
   enable_interrupts();
 
-  // main pedal loop
+  uint64_t cnt = 0;
+  for (cnt=0;;cnt++) {
+    // useful for debugging, fade breaks = panda is overloaded
+    for(uint32_t fade = 0U; fade < MAX_FADE; fade += 1U){
+      set_led(LED_BLUE, true);
+      delay(fade >> 4);
+      set_led(LED_BLUE, false);
+      delay((MAX_FADE - fade) >> 4);
+    }
+
+    for(uint32_t fade = MAX_FADE; fade > 0U; fade -= 1U){
+      set_led(LED_GREEN, true);
+      delay(fade >> 4);
+      set_led(LED_GREEN, false);
+      delay((MAX_FADE - fade) >> 4);
+    }
+  }
+
+  // main loop
   while (1) {
     loop();
   }
