@@ -10,6 +10,8 @@ can_health_t can_health[PANDA_CAN_CNT] = {{0}, {0}, {0}};
 // Ignition detected from CAN meessages
 bool ignition_can = false;
 uint32_t ignition_can_cnt = 0U;
+bool wake_on_can = false;
+uint32_t wake_on_can_cnt = 0U;
 
 bool can_silent = true;
 bool can_loopback = false;
@@ -158,6 +160,11 @@ void can_set_forwarding(uint8_t from, uint8_t to) {
 void ignition_can_hook(CANPacket_t *msg) {
   if (msg->bus == 0U) {
     int len = GET_LEN(msg);
+    const int TESLA_DI_GEAR_P = 1;
+    const int TESLA_DI_GEAR_R = 2;
+    const int TESLA_DI_GEAR_N = 3;
+    const int TESLA_DI_GEAR_D = 4;
+    static int tesla_gear = -1;
 
     // GM exception
     if ((msg->addr == 0x1F1U) && (len == 8)) {
@@ -180,7 +187,7 @@ void ignition_can_hook(CANPacket_t *msg) {
       prev_counter_rivian = counter;
     }
 
-    // Tesla Model 3/Y exception
+    // Tesla Model 3/Y exception - wake while LV power state is active
     if ((msg->addr == 0x221U) && (len == 8)) {
       // 0x221 overlaps with Rivian which has random data on byte 0
       int counter = msg->data[6] >> 4;
@@ -189,10 +196,29 @@ void ignition_can_hook(CANPacket_t *msg) {
       if ((counter == ((prev_counter_tesla + 1) % 16)) && (prev_counter_tesla != -1)) {
         // VCFRONT_LVPowerState->VCFRONT_vehiclePowerState
         int power_state = (msg->data[0] >> 5U) & 0x3U;
-        ignition_can = power_state == 0x3;  // VEHICLE_POWER_STATE_DRIVE=3
-        ignition_can_cnt = 0U;
+        wake_on_can = power_state != 0x0; // not VEHICLE_POWER_STATE_OFF
+        wake_on_can_cnt = 0U;
       }
       prev_counter_tesla = counter;
+    }
+
+    // Tesla Model 3/Y exception - drive gears -> ignition
+    if ((msg->addr == 0x118U) && (len == 8)) {
+      int counter = msg->data[1] & 0x0FU;
+
+      static int prev_counter_tesla_gear = -1;
+      if ((counter == ((prev_counter_tesla_gear + 1) % 16)) && (prev_counter_tesla_gear != -1)) {
+        tesla_gear = (msg->data[2] >> 5) & 0x7;
+        if ((tesla_gear == TESLA_DI_GEAR_R) || (tesla_gear == TESLA_DI_GEAR_N) || (tesla_gear == TESLA_DI_GEAR_D)) {
+          ignition_can = true;
+        }
+        // don't drop ignition on SNA/INVALID gear values
+        if (tesla_gear == TESLA_DI_GEAR_P) {
+          ignition_can = false;
+        }
+        ignition_can_cnt = 0U;
+      }
+      prev_counter_tesla_gear = counter;
     }
 
     // Mazda exception
